@@ -136,6 +136,7 @@ func main() {
 			return backend.SetBPFFilter(expr)
 		}
 		model.SetLinkType(backend.LinkType())
+		model.SetCapturing(true)
 	}
 	if sqliteStore != nil {
 		model.SetSQLiteStore(sqliteStore)

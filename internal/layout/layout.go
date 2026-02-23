@@ -3,6 +3,7 @@ package layout
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +15,14 @@ import (
 	"github.com/c0d343v3r/netdash/internal/store"
 	"github.com/c0d343v3r/netdash/internal/widgets"
 )
+
+type animTickMsg time.Time
+
+func animTickCmd() tea.Cmd {
+	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
+		return animTickMsg(t)
+	})
+}
 
 // Msg types that bridge EventBus channels into bubbletea.
 type PacketMsg events.PacketEvent
@@ -45,6 +54,7 @@ type Model struct {
 	height int
 
 	// Widgets
+	boar        *widgets.BoarWidget
 	inspector   *widgets.PacketInspector
 	netGraph    *widgets.NetGraphWidget
 	connections *widgets.ConnectionsWidget
@@ -69,14 +79,18 @@ type Model struct {
 	// Reverse DNS
 	resolver *resolve.Resolver
 
+	// Capture state
+	capturing  bool
+	hasBackend bool
+
 	packetCount uint64
 	captureErr  error
 	focusTarget int
 	bottomFocus int
 	centreMode  int // 0 = PacketInspector, 1 = NetGraph
-	statusStyle    lipgloss.Style
-	filterStyle    lipgloss.Style
-	displayBarStyle lipgloss.Style
+	statusStyle     lipgloss.Style
+	filterStyle     lipgloss.Style
+	displayBarStyle  lipgloss.Style
 	displayBarActive lipgloss.Style
 }
 
@@ -85,6 +99,15 @@ func (m *Model) SetLinkType(lt layers.LinkType) { m.linkType = lt }
 
 // SetSQLiteStore wires an optional SQLite store for continuous event logging.
 func (m *Model) SetSQLiteStore(s *store.SQLiteStore) { m.sqliteStore = s }
+
+// SetCapturing sets the initial capture state (true = active, false = paused).
+// It also marks that a backend is present.
+func (m *Model) SetCapturing(active bool) {
+	m.capturing = active
+	m.hasBackend = true
+	m.boar.SetCapturing(active)
+	m.boar.SetHasBackend(true)
+}
 
 func New(cfg *config.Config, bus *events.EventBus) Model {
 	ds := widgets.NewDisplayFilterSet()
@@ -96,6 +119,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		bus:            bus,
 		saveDir:        session.DefaultSaveDir(),
 		resolver:       resolve.New(),
+		boar:           widgets.NewBoarWidget(),
 		inspector:      insp,
 		netGraph:       func() *widgets.NetGraphWidget {
 			ng := widgets.NewNetGraphWidget()
@@ -138,6 +162,7 @@ func (m Model) Init() tea.Cmd {
 		m.listenDNS(),
 		m.listenTLS(),
 		m.listenHTTP(),
+		animTickCmd(),
 	)
 }
 
@@ -173,6 +198,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.displayFilters.Clear()
 			m.inspector.List().RebuildFiltered()
 			return m, nil
+
+		case " ":
+			if m.hasBackend {
+				m.capturing = !m.capturing
+				m.boar.SetCapturing(m.capturing)
+			}
+			return m, tea.Batch(cmds...)
 
 		case "n":
 			m.centreMode = (m.centreMode + 1) % 2
@@ -212,6 +244,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case animTickMsg:
+		if m.capturing {
+			m.boar.Advance()
+		}
+		cmds = append(cmds, animTickCmd())
+
 	case SaveStatusMsg:
 		m.saveStatus = msg.Text
 
@@ -232,8 +270,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.recalcSizes()
 
 	case PacketMsg:
-		m.packetCount++
 		evt := events.PacketEvent(msg)
+		cmds = append(cmds, m.listenPackets()) // always drain to prevent channel blocking
+
+		if !m.capturing {
+			break // discard packet; widgets stay frozen
+		}
+
+		m.packetCount++
 
 		if m.sqliteStore != nil {
 			m.sqliteStore.WritePacket(evt)
@@ -262,8 +306,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.protoDist.Update(evt)
 		m.remoteHosts.Update(evt)
 		m.netGraph.Update(evt)
-
-		cmds = append(cmds, m.listenPackets())
 
 	case DNSMsg:
 		evt := events.DNSEvent(msg)
@@ -388,8 +430,12 @@ func (m Model) View() string {
 		filterView := m.filterBar.View()
 
 		focusHint := focusName(m.focusTarget, m.bottomFocus)
-		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  q: quit",
-			m.packetCount, pane, focusHint)
+		spaceHint := "SPACE: pause"
+		if !m.capturing && m.hasBackend {
+			spaceHint = "SPACE: resume"
+		}
+		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  %s  q: quit",
+			m.packetCount, pane, focusHint, spaceHint)
 		if filterView != "" {
 			statusText += "  |  " + filterView
 		}
@@ -412,9 +458,14 @@ func (m Model) View() string {
 		centreW = 20
 	}
 
-	// Left panel: connections
-	m.connections.SetSize(leftW, mainH)
-	leftView := m.connections.View()
+	// Left panel: boar (top) + connections (remainder)
+	boarH := m.boar.Height()
+	m.boar.SetWidth(leftW)
+	m.connections.SetSize(leftW, mainH-boarH)
+	leftView := lipgloss.JoinVertical(lipgloss.Left,
+		m.boar.View(),
+		m.connections.View(),
+	)
 
 	// Right panel: DNS (top half) + Bandwidth (bottom half)
 	rightTopH := mainH / 2
