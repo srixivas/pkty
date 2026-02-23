@@ -95,6 +95,23 @@ func (t *TLSInspectorWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 			t.cursor = len(t.rows) - 1
 		}
 
+	case tea.MouseMsg:
+		if !t.focused {
+			return t, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if t.cursor > 0 {
+				t.cursor--
+				t.ensureVisible()
+			}
+		case tea.MouseWheelDown:
+			if t.cursor < len(t.rows)-1 {
+				t.cursor++
+				t.ensureVisible()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !t.focused {
 			return t, nil

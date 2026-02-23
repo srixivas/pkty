@@ -107,6 +107,30 @@ func (pi *PacketInspector) Update(msg tea.Msg) (Widget, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
+	case tea.MouseMsg:
+		if !pi.focused {
+			return pi, nil
+		}
+		switch pi.activePane {
+		case PaneList:
+			w, cmd := pi.list.Update(msg)
+			pi.list = w.(*PacketList)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		case PaneDetail:
+			w, cmd := pi.detail.Update(msg)
+			pi.detail = w.(*DetailTree)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		case PaneHex:
+			w, cmd := pi.hexdump.Update(msg)
+			pi.hexdump = w.(*HexDump)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
 	default:
 		// PacketMsg events go to the list
 		if _, ok := msg.(events.PacketEvent); ok {

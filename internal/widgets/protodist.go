@@ -41,14 +41,31 @@ func NewProtocolDistWidget() *ProtocolDistWidget {
 		borderStyle:   lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("9")),
 		focusBorder:   lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("226")),
 		barColors: map[string]lipgloss.Style{
-			"TCP":     lipgloss.NewStyle().Foreground(lipgloss.Color("111")),
-			"UDP":     lipgloss.NewStyle().Foreground(lipgloss.Color("147")),
-			"DNS":     lipgloss.NewStyle().Foreground(lipgloss.Color("114")),
-			"HTTP":    lipgloss.NewStyle().Foreground(lipgloss.Color("215")),
-			"TLS":     lipgloss.NewStyle().Foreground(lipgloss.Color("213")),
-			"ARP":     lipgloss.NewStyle().Foreground(lipgloss.Color("222")),
-			"ICMP":    lipgloss.NewStyle().Foreground(lipgloss.Color("117")),
-			"Unknown": lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+			"TCP":      lipgloss.NewStyle().Foreground(lipgloss.Color("111")),
+			"UDP":      lipgloss.NewStyle().Foreground(lipgloss.Color("147")),
+			"HTTP":     lipgloss.NewStyle().Foreground(lipgloss.Color("215")),
+			"HTTPS":    lipgloss.NewStyle().Foreground(lipgloss.Color("213")),
+			"DNS":      lipgloss.NewStyle().Foreground(lipgloss.Color("114")),
+			"SSH":      lipgloss.NewStyle().Foreground(lipgloss.Color("226")),
+			"FTP":      lipgloss.NewStyle().Foreground(lipgloss.Color("208")),
+			"SMTP":     lipgloss.NewStyle().Foreground(lipgloss.Color("180")),
+			"SMTPS":    lipgloss.NewStyle().Foreground(lipgloss.Color("181")),
+			"POP3":     lipgloss.NewStyle().Foreground(lipgloss.Color("179")),
+			"IMAP":     lipgloss.NewStyle().Foreground(lipgloss.Color("178")),
+			"IMAPS":    lipgloss.NewStyle().Foreground(lipgloss.Color("177")),
+			"RDP":      lipgloss.NewStyle().Foreground(lipgloss.Color("204")),
+			"VNC":      lipgloss.NewStyle().Foreground(lipgloss.Color("205")),
+			"NTP":      lipgloss.NewStyle().Foreground(lipgloss.Color("116")),
+			"mDNS":     lipgloss.NewStyle().Foreground(lipgloss.Color("115")),
+			"MySQL":    lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+			"Postgres": lipgloss.NewStyle().Foreground(lipgloss.Color("39")),
+			"Redis":    lipgloss.NewStyle().Foreground(lipgloss.Color("196")),
+			"MongoDB":  lipgloss.NewStyle().Foreground(lipgloss.Color("34")),
+			"DHCP":     lipgloss.NewStyle().Foreground(lipgloss.Color("220")),
+			"TLS":      lipgloss.NewStyle().Foreground(lipgloss.Color("213")),
+			"ARP":      lipgloss.NewStyle().Foreground(lipgloss.Color("222")),
+			"ICMP":     lipgloss.NewStyle().Foreground(lipgloss.Color("117")),
+			"Unknown":  lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		},
 	}
 }
@@ -59,24 +76,133 @@ func (p *ProtocolDistWidget) SetSize(w, h int)  { p.width = w; p.height = h }
 func (p *ProtocolDistWidget) SetFocused(f bool) { p.focused = f }
 func (p *ProtocolDistWidget) Focused() bool     { return p.focused }
 
+// l7PrimaryPort maps port-inferred service names to their primary port string.
+// Services here were inferred from ports in effectiveProto(), so we filter by
+// port to get consistent packet-list results.
+var l7PrimaryPort = map[string]string{
+	"HTTPS":    "443",
+	"SSH":      "22",
+	"FTP":      "21",
+	"SMTP":     "25",
+	"SMTPS":    "465",
+	"POP3":     "110",
+	"IMAP":     "143",
+	"IMAPS":    "993",
+	"MySQL":    "3306",
+	"Postgres": "5432",
+	"Redis":    "6379",
+	"MongoDB":  "27017",
+	"mDNS":     "5353",
+	"DHCP":     "67",
+	"NTP":      "123",
+	"RDP":      "3389",
+	"VNC":      "5900",
+	// HTTP and DNS are omitted: they may be parser-set (Protocol="HTTP"/"DNS"),
+	// so FilterProtocol matches them correctly without a port mapping.
+}
+
 func (p *ProtocolDistWidget) SelectedFilter() *DisplayFilter {
 	if len(p.sorted) == 0 || p.cursor < 0 || p.cursor >= len(p.sorted) {
 		return nil
 	}
-	f := MakeFilter(FilterProtocol, p.sorted[p.cursor].Name)
+	name := p.sorted[p.cursor].Name
+	if port, ok := l7PrimaryPort[name]; ok {
+		f := MakeFilter(FilterPort, port)
+		return &f
+	}
+	f := MakeFilter(FilterProtocol, name)
 	return &f
+}
+
+// effectiveProto returns the application-layer protocol name for a packet.
+// For TCP/UDP, it checks well-known ports to return service names (HTTPS, SSH, etc.).
+// For packets already tagged with a meaningful protocol by the parser, it returns as-is.
+func effectiveProto(proto string, srcPort, dstPort uint16) string {
+	if proto != "TCP" && proto != "UDP" {
+		return proto // already meaningful: HTTP (parser-set), ICMP, ARP, etc.
+	}
+	// Check dest port first (outgoing service port)
+	if name := servicePortName(dstPort); name != "" {
+		return name
+	}
+	// Then src port (incoming / response)
+	if name := servicePortName(srcPort); name != "" {
+		return name
+	}
+	return proto
+}
+
+// servicePortName maps well-known port numbers to service labels.
+// Returns "" for unrecognised ports. Mirrors protoLabel() in netgraph.go.
+func servicePortName(port uint16) string {
+	switch port {
+	case 80, 8080:
+		return "HTTP"
+	case 443, 8443:
+		return "HTTPS"
+	case 22:
+		return "SSH"
+	case 53:
+		return "DNS"
+	case 21:
+		return "FTP"
+	case 25, 587:
+		return "SMTP"
+	case 465:
+		return "SMTPS"
+	case 110:
+		return "POP3"
+	case 143:
+		return "IMAP"
+	case 993:
+		return "IMAPS"
+	case 3306:
+		return "MySQL"
+	case 5432:
+		return "Postgres"
+	case 6379:
+		return "Redis"
+	case 27017:
+		return "MongoDB"
+	case 5353:
+		return "mDNS"
+	case 67, 68:
+		return "DHCP"
+	case 123:
+		return "NTP"
+	case 3389:
+		return "RDP"
+	case 5900:
+		return "VNC"
+	}
+	return ""
 }
 
 func (p *ProtocolDistWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 	switch msg := msg.(type) {
 	case events.PacketEvent:
-		proto := msg.Protocol
+		proto := effectiveProto(msg.Protocol, msg.SrcPort, msg.DstPort)
 		if proto == "" {
 			proto = "Unknown"
 		}
 		p.counts[proto]++
 		p.total++
 		p.rebuildSorted()
+
+	case tea.MouseMsg:
+		if !p.focused {
+			return p, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if p.cursor > 0 {
+				p.cursor--
+			}
+		case tea.MouseWheelDown:
+			if p.cursor < len(p.sorted)-1 {
+				p.cursor++
+			}
+		}
 
 	case tea.KeyMsg:
 		if !p.focused {

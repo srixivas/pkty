@@ -131,6 +131,8 @@ func hostRows(h *ngHost) int { return 1 + len(h.Edges) + 1 }
 type NetGraphWidget struct {
 	hosts        map[string]*ngHost
 	sorted       []*ngHost
+	visible      []*ngHost          // filtered subset of sorted; == sorted when no filter active
+	displayFilter *DisplayFilterSet
 	ipToName     map[string]string
 	maxEdgeBytes uint64 // global max of any single edge TX or RX — used for bar scaling
 	sourceName   string
@@ -190,6 +192,38 @@ func (g *NetGraphWidget) SetSourceName(n string) {
 	}
 }
 
+func (g *NetGraphWidget) SetDisplayFilter(ds *DisplayFilterSet) {
+	g.displayFilter = ds
+}
+
+// RebuildVisible recomputes g.visible from g.sorted applying the active display filter.
+// Called after rebuildSorted() and after filter changes from layout.
+func (g *NetGraphWidget) RebuildVisible() {
+	if g.displayFilter == nil || !g.displayFilter.Active() {
+		g.visible = g.sorted
+	} else {
+		vis := make([]*ngHost, 0, len(g.sorted))
+		for _, h := range g.sorted {
+			var ports []uint16
+			var protos []string
+			for ek := range h.Edges {
+				ports = append(ports, ek.Port)
+				protos = append(protos, ek.Proto)
+			}
+			if g.displayFilter.MatchHost(h.IP, ports, protos) {
+				vis = append(vis, h)
+			}
+		}
+		g.visible = vis
+	}
+	if g.cursor >= len(g.visible) {
+		g.cursor = len(g.visible) - 1
+	}
+	if g.cursor < 0 {
+		g.cursor = 0
+	}
+}
+
 func (g *NetGraphWidget) AddIPName(ip, name string) {
 	if ip != "" && name != "" {
 		g.ipToName[ip] = name
@@ -204,10 +238,10 @@ func (g *NetGraphWidget) displayName(ip string) string {
 }
 
 func (g *NetGraphWidget) SelectedFilter() *DisplayFilter {
-	if len(g.sorted) == 0 || g.cursor < 0 || g.cursor >= len(g.sorted) {
+	if len(g.visible) == 0 || g.cursor < 0 || g.cursor >= len(g.visible) {
 		return nil
 	}
-	ip := g.sorted[g.cursor].IP
+	ip := g.visible[g.cursor].IP
 	if name, ok := g.ipToName[ip]; ok {
 		f := MakeFilter(FilterDNS, name)
 		return &f
@@ -281,6 +315,23 @@ func (g *NetGraphWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 
 		g.rebuildSorted()
 
+	case tea.MouseMsg:
+		if !g.focused {
+			return g, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if g.cursor > 0 {
+				g.cursor--
+				g.ensureVisible()
+			}
+		case tea.MouseWheelDown:
+			if g.cursor < len(g.visible)-1 {
+				g.cursor++
+				g.ensureVisible()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !g.focused {
 			return g, nil
@@ -292,7 +343,7 @@ func (g *NetGraphWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 				g.ensureVisible()
 			}
 		case "down", "j":
-			if g.cursor < len(g.sorted)-1 {
+			if g.cursor < len(g.visible)-1 {
 				g.cursor++
 				g.ensureVisible()
 			}
@@ -315,20 +366,15 @@ func (g *NetGraphWidget) rebuildSorted() {
 		tj := g.sorted[j].TXTotal + g.sorted[j].RXTotal
 		return ti > tj
 	})
-	if g.cursor >= len(g.sorted) {
-		g.cursor = len(g.sorted) - 1
-	}
-	if g.cursor < 0 {
-		g.cursor = 0
-	}
+	g.RebuildVisible()
 }
 
-// hostFirstRow returns the pre-rendered row index where hostIdx starts.
+// hostFirstRowVisible counts pre-rendered rows for hosts in g.visible up to hostIdx.
 // Rows 0 and 1 are always the source node and its tree connector.
-func (g *NetGraphWidget) hostFirstRow(hostIdx int) int {
+func (g *NetGraphWidget) hostFirstRowVisible(hostIdx int) int {
 	row := 2
 	for i := 0; i < hostIdx; i++ {
-		row += hostRows(g.sorted[i])
+		row += hostRows(g.visible[i])
 	}
 	return row
 }
@@ -339,8 +385,11 @@ func (g *NetGraphWidget) ensureVisible() {
 	if avail < 1 {
 		avail = 1
 	}
-	first := g.hostFirstRow(g.cursor)
-	last := first + hostRows(g.sorted[g.cursor]) - 1
+	if len(g.visible) == 0 {
+		return
+	}
+	first := g.hostFirstRowVisible(g.cursor)
+	last := first + hostRows(g.visible[g.cursor]) - 1
 
 	if first < g.offset {
 		g.offset = first
@@ -406,85 +455,97 @@ func (g *NetGraphWidget) View() string {
 	} else {
 		rows = append(rows, g.treeStyle.Render("  │"))
 
-		for i, h := range g.sorted {
-			isLastHost := i == len(g.sorted)-1
-			isCursor := i == g.cursor
+		// Filter indicator: show when some hosts are hidden by an active filter.
+		if g.displayFilter != nil && g.displayFilter.Active() && len(g.visible) < len(g.sorted) {
+			hidden := len(g.sorted) - len(g.visible)
+			rows = append(rows, g.treeStyle.Render(
+				fmt.Sprintf("  │  (%d of %d hosts hidden by filter)", hidden, len(g.sorted)),
+			))
+		}
 
-			hostConn := "  ├─▶"
-			vertLine := "  │"
-			if isLastHost {
-				hostConn = "  └─▶"
-				vertLine = "   "
-			}
+		if len(g.visible) == 0 {
+			rows = append(rows, g.emptyStyle.Render("  └── (no hosts match filter)"))
+		} else {
+			for i, h := range g.visible {
+				isLastHost := i == len(g.visible)-1
+				isCursor := i == g.cursor
 
-			// Host header ────────────────────────────────────────────────────
-			name := g.displayName(h.IP)
-			if name != h.IP {
-				// Show "domain.com (1.2.3.4)"
-				name = fmt.Sprintf("%s (%s)", truncStr(name, 28), h.IP)
-			}
-			name = truncStr(name, 40)
-
-			total := h.TXTotal + h.RXTotal
-			tagTxt := "[remote]"
-			tagSty := g.remoteTagStyle
-			if h.Tag == "local" {
-				tagTxt = "[local]"
-				tagSty = g.localTagStyle
-			}
-
-			if isCursor && g.focused {
-				raw := fmt.Sprintf("%s %s %s  %s",
-					hostConn, name, tagTxt, formatBytes(total))
-				rows = append(rows, g.hostSelStyle.Width(cw).Render(truncStr(raw, cw)))
-			} else {
-				rows = append(rows,
-					g.treeStyle.Render(hostConn)+" "+
-						g.hostNormStyle.Render(name)+" "+
-						tagSty.Render(tagTxt)+"  "+
-						g.totalStyle.Render(formatBytes(total)),
-				)
-			}
-
-			// Edge rows ──────────────────────────────────────────────────────
-			sortedEdges := make([]*ngEdge, 0, len(h.Edges))
-			for _, e := range h.Edges {
-				sortedEdges = append(sortedEdges, e)
-			}
-			sort.Slice(sortedEdges, func(a, b int) bool {
-				ta := sortedEdges[a].TXBytes + sortedEdges[a].RXBytes
-				tb := sortedEdges[b].TXBytes + sortedEdges[b].RXBytes
-				return ta > tb
-			})
-
-			for ei, e := range sortedEdges {
-				edgeConn := "  ├──"
-				if ei == len(sortedEdges)-1 {
-					edgeConn = "  └──"
+				hostConn := "  ├─▶"
+				vertLine := "  │"
+				if isLastHost {
+					hostConn = "  └─▶"
+					vertLine = "   "
 				}
 
-				label := fmt.Sprintf("%-7s", truncStr(protoLabel(e.Proto, e.Port), 7))
+				// Host header ────────────────────────────────────────────────────
+				name := g.displayName(h.IP)
+				if name != h.IP {
+					// Show "domain.com (1.2.3.4)"
+					name = fmt.Sprintf("%s (%s)", truncStr(name, 28), h.IP)
+				}
+				name = truncStr(name, 40)
 
-				txFill := ngBarFill(e.TXBytes, g.maxEdgeBytes, barW)
-				rxFill := ngBarFill(e.RXBytes, g.maxEdgeBytes, barW)
-				txBar := g.txStyle.Render(strings.Repeat("█", txFill) + strings.Repeat("░", barW-txFill))
-				rxBar := g.rxStyle.Render(strings.Repeat("█", rxFill) + strings.Repeat("░", barW-rxFill))
+				total := h.TXTotal + h.RXTotal
+				tagTxt := "[remote]"
+				tagSty := g.remoteTagStyle
+				if h.Tag == "local" {
+					tagTxt = "[local]"
+					tagSty = g.localTagStyle
+				}
 
-				row := g.treeStyle.Render(vertLine+edgeConn) +
-					"[" + g.labelStyle.Render(label) + "]" +
-					g.txStyle.Render("──▶") + " " +
-					g.txStyle.Render(fmt.Sprintf("%7s", formatBytes(e.TXBytes))) + " " +
-					txBar + "  " +
-					g.rxStyle.Render("◀──") + " " +
-					g.rxStyle.Render(fmt.Sprintf("%7s", formatBytes(e.RXBytes))) + " " +
-					rxBar
+				if isCursor && g.focused {
+					raw := fmt.Sprintf("%s %s %s  %s",
+						hostConn, name, tagTxt, formatBytes(total))
+					rows = append(rows, g.hostSelStyle.Width(cw).Render(truncStr(raw, cw)))
+				} else {
+					rows = append(rows,
+						g.treeStyle.Render(hostConn)+" "+
+							g.hostNormStyle.Render(name)+" "+
+							tagSty.Render(tagTxt)+"  "+
+							g.totalStyle.Render(formatBytes(total)),
+					)
+				}
 
-				rows = append(rows, row)
-			}
+				// Edge rows ──────────────────────────────────────────────────────
+				sortedEdges := make([]*ngEdge, 0, len(h.Edges))
+				for _, e := range h.Edges {
+					sortedEdges = append(sortedEdges, e)
+				}
+				sort.Slice(sortedEdges, func(a, b int) bool {
+					ta := sortedEdges[a].TXBytes + sortedEdges[a].RXBytes
+					tb := sortedEdges[b].TXBytes + sortedEdges[b].RXBytes
+					return ta > tb
+				})
 
-			// Separator between host groups
-			if !isLastHost {
-				rows = append(rows, g.treeStyle.Render(vertLine))
+				for ei, e := range sortedEdges {
+					edgeConn := "  ├──"
+					if ei == len(sortedEdges)-1 {
+						edgeConn = "  └──"
+					}
+
+					label := fmt.Sprintf("%-7s", truncStr(protoLabel(e.Proto, e.Port), 7))
+
+					txFill := ngBarFill(e.TXBytes, g.maxEdgeBytes, barW)
+					rxFill := ngBarFill(e.RXBytes, g.maxEdgeBytes, barW)
+					txBar := g.txStyle.Render(strings.Repeat("█", txFill) + strings.Repeat("░", barW-txFill))
+					rxBar := g.rxStyle.Render(strings.Repeat("█", rxFill) + strings.Repeat("░", barW-rxFill))
+
+					row := g.treeStyle.Render(vertLine+edgeConn) +
+						"[" + g.labelStyle.Render(label) + "]" +
+						g.txStyle.Render("──▶") + " " +
+						g.txStyle.Render(fmt.Sprintf("%7s", formatBytes(e.TXBytes))) + " " +
+						txBar + "  " +
+						g.rxStyle.Render("◀──") + " " +
+						g.rxStyle.Render(fmt.Sprintf("%7s", formatBytes(e.RXBytes))) + " " +
+						rxBar
+
+					rows = append(rows, row)
+				}
+
+				// Separator between host groups
+				if !isLastHost {
+					rows = append(rows, g.treeStyle.Render(vertLine))
+				}
 			}
 		}
 	}

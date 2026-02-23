@@ -95,6 +95,23 @@ func (d *DNSWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 			d.cursor = len(d.rows) - 1
 		}
 
+	case tea.MouseMsg:
+		if !d.focused {
+			return d, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if d.cursor > 0 {
+				d.cursor--
+				d.ensureVisible()
+			}
+		case tea.MouseWheelDown:
+			if d.cursor < len(d.rows)-1 {
+				d.cursor++
+				d.ensureVisible()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !d.focused {
 			return d, nil

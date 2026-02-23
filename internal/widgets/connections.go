@@ -101,6 +101,23 @@ func (c *ConnectionsWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 		}
 		c.rebuildSorted()
 
+	case tea.MouseMsg:
+		if !c.focused {
+			return c, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if c.cursor > 0 {
+				c.cursor--
+				c.ensureVisible()
+			}
+		case tea.MouseWheelDown:
+			if c.cursor < len(c.sorted)-1 {
+				c.cursor++
+				c.ensureVisible()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !c.focused {
 			return c, nil

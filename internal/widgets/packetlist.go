@@ -125,6 +125,26 @@ func (p *PacketList) Update(msg tea.Msg) (Widget, tea.Cmd) {
 	switch msg := msg.(type) {
 	case events.PacketEvent:
 		p.addPacket(msg)
+	case tea.MouseMsg:
+		if !p.focused {
+			return p, nil
+		}
+		rows := p.activeRows()
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if p.cursor > 0 {
+				p.cursor--
+				p.ensureVisible()
+				p.notifySelect()
+			}
+		case tea.MouseWheelDown:
+			if p.cursor < len(rows)-1 {
+				p.cursor++
+				p.ensureVisible()
+				p.notifySelect()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !p.focused {
 			return p, nil

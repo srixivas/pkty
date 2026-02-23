@@ -169,6 +169,68 @@ func (d *DisplayFilterSet) matchOne(f DisplayFilter, row PacketRow) bool {
 	return true
 }
 
+// MatchHost returns true if a remote host (identified by IP, its edge ports,
+// and its edge proto names) passes ALL active display filters.
+// Always true when no filters are set.
+func (d *DisplayFilterSet) MatchHost(ip string, ports []uint16, protos []string) bool {
+	if len(d.filters) == 0 {
+		return true
+	}
+	for _, f := range d.filters {
+		if !d.matchHostOne(f, ip, ports, protos) {
+			return false
+		}
+	}
+	return true
+}
+
+func (d *DisplayFilterSet) matchHostOne(f DisplayFilter, ip string, ports []uint16, protos []string) bool {
+	switch f.Kind {
+	case FilterIP:
+		ok, _ := filepath.Match(f.Value, ip)
+		return ok
+	case FilterDNS:
+		for domain, ips := range d.dnsNameToIPs {
+			if ok, _ := filepath.Match(f.Value, domain); !ok {
+				continue
+			}
+			for _, resolved := range ips {
+				if resolved == ip {
+					return true
+				}
+			}
+		}
+		return false
+	case FilterTLSSNI:
+		for sni, ips := range d.sniToIPs {
+			if ok, _ := filepath.Match(f.Value, sni); !ok {
+				continue
+			}
+			for _, resolved := range ips {
+				if resolved == ip {
+					return true
+				}
+			}
+		}
+		return false
+	case FilterPort:
+		for _, p := range ports {
+			if strconv.Itoa(int(p)) == f.Value {
+				return true
+			}
+		}
+		return false
+	case FilterProtocol:
+		for _, proto := range protos {
+			if matched, _ := filepath.Match(strings.ToLower(f.Value), strings.ToLower(proto)); matched {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
 // Summary returns a human-readable description of active filters.
 func (d *DisplayFilterSet) Summary() string {
 	if len(d.filters) == 0 {

@@ -61,6 +61,23 @@ func (h *HexDump) SetHighlight(start, end int) {
 }
 
 func (h *HexDump) Update(msg tea.Msg) (Widget, tea.Cmd) {
+	if msg, ok := msg.(tea.MouseMsg); ok && h.focused {
+		maxOff := h.totalLines() - h.visibleLines()
+		if maxOff < 0 {
+			maxOff = 0
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if h.offset > 0 {
+				h.offset--
+			}
+		case tea.MouseWheelDown:
+			if h.offset < maxOff {
+				h.offset++
+			}
+		}
+		return h, nil
+	}
 	if msg, ok := msg.(tea.KeyMsg); ok && h.focused {
 		maxOff := h.totalLines() - h.visibleLines()
 		if maxOff < 0 {

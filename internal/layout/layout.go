@@ -125,6 +125,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		netGraph:       func() *widgets.NetGraphWidget {
 			ng := widgets.NewNetGraphWidget()
 			ng.SetSourceName(cfg.Capture.Interface)
+			ng.SetDisplayFilter(ds)
 			return ng
 		}(),
 		connections:    widgets.NewConnectionsWidget(),
@@ -213,6 +214,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Clear all display filters
 			m.displayFilters.Clear()
 			m.inspector.List().RebuildFiltered()
+			m.netGraph.RebuildVisible()
 			return m, nil
 
 		case " ":
@@ -260,6 +262,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case tea.MouseMsg:
+		if msg.Type == tea.MouseWheelUp || msg.Type == tea.MouseWheelDown {
+			if cmd := m.routeKey(msg); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+
 	case animTickMsg:
 		if m.capturing {
 			m.boar.Advance()
@@ -272,11 +281,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case widgets.DisplayFilterToggleMsg:
 		m.displayFilters.Toggle(msg.Filter)
 		m.inspector.List().RebuildFiltered()
+		m.netGraph.RebuildVisible()
 
 	case widgets.SearchApplyMsg:
 		if f, ok := widgets.ParseSearchPattern(msg.Pattern); ok {
 			m.displayFilters.Toggle(f)
 			m.inspector.List().RebuildFiltered()
+			m.netGraph.RebuildVisible()
 		}
 
 	case widgets.FilterApplyMsg:
@@ -372,8 +383,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// routeKey sends a keyboard message to the currently focused widget.
-func (m *Model) routeKey(msg tea.KeyMsg) tea.Cmd {
+// routeKey sends a keyboard or mouse message to the currently focused widget.
+func (m *Model) routeKey(msg tea.Msg) tea.Cmd {
 	switch m.focusTarget {
 	case FocusCentre:
 		if m.centreMode == 1 {

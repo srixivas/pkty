@@ -142,7 +142,7 @@ func main() {
 		model.SetSQLiteStore(sqliteStore)
 	}
 
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("error running netdash: %v", err)

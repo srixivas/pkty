@@ -116,6 +116,23 @@ func (r *RemoteHostsWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 		}
 		r.rebuildSorted()
 
+	case tea.MouseMsg:
+		if !r.focused {
+			return r, nil
+		}
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if r.cursor > 0 {
+				r.cursor--
+				r.ensureVisible()
+			}
+		case tea.MouseWheelDown:
+			if r.cursor < len(r.sorted)-1 {
+				r.cursor++
+				r.ensureVisible()
+			}
+		}
+
 	case tea.KeyMsg:
 		if !r.focused {
 			return r, nil

@@ -87,6 +87,15 @@ func (d *DetailTree) SelectedRange() (int, int) {
 }
 
 func (d *DetailTree) Update(msg tea.Msg) (Widget, tea.Cmd) {
+	if msg, ok := msg.(tea.MouseMsg); ok && d.focused {
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			d.moveCursor(-1)
+		case tea.MouseWheelDown:
+			d.moveCursor(1)
+		}
+		return d, nil
+	}
 	if msg, ok := msg.(tea.KeyMsg); ok && d.focused {
 		switch msg.String() {
 		case "up", "k":
