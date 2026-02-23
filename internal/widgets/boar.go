@@ -6,12 +6,52 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// boarFrames holds 4 animation frames of the ASCII boar (3 rows each).
-var boarFrames = [4][3]string{
-	{"  ,,  ", " (oo)>", " /  \\ "},
-	{"  ,,  ", " (oo)>", "  /\\  "},
-	{"  ,,  ", " (oo)>", " \\  / "},
-	{"  ,,  ", " (oo)>", "  /\\  "},
+// boarFrames holds 4 animation frames of the ASCII boar (6 rows each).
+//
+// Stable rows (every frame):
+//
+//	row 1 — eyes      (oo  oo)
+//	row 2 — snout     \| (;;) |/  (tusks)
+//	row 3 — chin      \___/
+//
+// Animated rows:
+//
+//	row 0 — ears      /\  /\  (relaxed)  vs  |\  /|  (pricked)
+//	row 4 — legs      cycle: forward → neutral → back → neutral
+//	row 5 — hooves    cycle: wide-out  → straight → wide-in → straight
+var boarFrames = [4][6]string{
+	{ // Frame 0: ears relaxed, legs forward
+		"    /\\  /\\  ",
+		"    (oo  oo)  ",
+		"  \\| (;;) |/ ",
+		"     \\___/   ",
+		"    //  \\\\  ",
+		"   //    \\\\ ",
+	},
+	{ // Frame 1: ears pricked, legs neutral (hooves tucked)
+		"    |\\  /|   ",
+		"    (oo  oo)  ",
+		"  \\| (;;) |/ ",
+		"     \\___/   ",
+		"      |  |    ",
+		"     |    |   ",
+	},
+	{ // Frame 2: ears relaxed, legs back
+		"    /\\  /\\   ",
+		"    (oo  oo)   ",
+		"  \\| (;;) |/  ",
+		"     \\___/    ",
+		"      \\  /    ",
+		"       \\/     ",
+	},
+	{ // Frame 3: ears pricked, legs neutral (hooves flared)
+		"    |\\  /|    ",
+		"    (oo  oo)   ",
+		"  \\| (;;) |/  ",
+		"     \\___/    ",
+		"      |  |     ",
+		"     /    \\   ",
+	},
 }
 
 // BoarWidget renders an animated ASCII boar with a capture-state status line.
@@ -28,8 +68,8 @@ func NewBoarWidget() *BoarWidget {
 	return &BoarWidget{}
 }
 
-// Height returns the fixed height of the boar widget (3 art rows + 1 status row).
-func (b *BoarWidget) Height() int { return 4 }
+// Height returns the fixed height of the boar widget (6 art rows + 1 status row).
+func (b *BoarWidget) Height() int { return 7 }
 
 // SetWidth sets the render width used for centring the art.
 func (b *BoarWidget) SetWidth(w int) { b.width = w }
@@ -43,11 +83,11 @@ func (b *BoarWidget) SetHasBackend(h bool) { b.hasBackend = h }
 // Advance steps to the next animation frame (called on each tick when capturing).
 func (b *BoarWidget) Advance() { b.frame = (b.frame + 1) % 4 }
 
-// View renders the boar widget as a 4-row string at the configured width.
+// View renders the boar widget as a 7-row string at the configured width.
 func (b *BoarWidget) View() string {
 	frame := boarFrames[b.frame]
 
-	// Find the max art width so we can centre it.
+	// Find the max art width so we can centre the block.
 	artW := 0
 	for _, row := range frame {
 		if len(row) > artW {
