@@ -3,6 +3,8 @@ package widgets
 import (
 	"fmt"
 	"net"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -119,35 +121,42 @@ func (d *DisplayFilterSet) matchOne(f DisplayFilter, row PacketRow) bool {
 	case FilterIP:
 		srcIP := extractIP(row.SrcAddr)
 		dstIP := extractIP(row.DstAddr)
-		return srcIP == f.Value || dstIP == f.Value
+		srcOK, _ := filepath.Match(f.Value, srcIP)
+		dstOK, _ := filepath.Match(f.Value, dstIP)
+		return srcOK || dstOK
 
 	case FilterProtocol:
-		return strings.EqualFold(row.Protocol, f.Value)
+		matched, _ := filepath.Match(strings.ToLower(f.Value), strings.ToLower(row.Protocol))
+		return matched
 
 	case FilterDNS:
-		ips := d.dnsNameToIPs[f.Value]
-		if len(ips) == 0 {
-			return false
-		}
 		srcIP := extractIP(row.SrcAddr)
 		dstIP := extractIP(row.DstAddr)
-		for _, ip := range ips {
-			if srcIP == ip || dstIP == ip {
-				return true
+		for domain, ips := range d.dnsNameToIPs {
+			ok, _ := filepath.Match(f.Value, domain)
+			if !ok {
+				continue
+			}
+			for _, ip := range ips {
+				if ip == srcIP || ip == dstIP {
+					return true
+				}
 			}
 		}
 		return false
 
 	case FilterTLSSNI:
-		ips := d.sniToIPs[f.Value]
-		if len(ips) == 0 {
-			return false
-		}
 		srcIP := extractIP(row.SrcAddr)
 		dstIP := extractIP(row.DstAddr)
-		for _, ip := range ips {
-			if srcIP == ip || dstIP == ip {
-				return true
+		for sni, ips := range d.sniToIPs {
+			ok, _ := filepath.Match(f.Value, sni)
+			if !ok {
+				continue
+			}
+			for _, ip := range ips {
+				if ip == srcIP || ip == dstIP {
+					return true
+				}
 			}
 		}
 		return false
@@ -225,4 +234,63 @@ func extractPort(addr string) string {
 		return addr[idx+1:]
 	}
 	return ""
+}
+
+// knownProtocols is the allow-list for protocol name auto-detection.
+var knownProtocols = map[string]bool{
+	"tcp": true, "udp": true, "http": true, "https": true,
+	"tls": true, "dns": true, "ssh": true, "ftp": true,
+	"quic": true, "icmp": true, "arp": true,
+}
+
+// ParseSearchPattern auto-detects the filter kind from a typed search string
+// and returns the appropriate DisplayFilter. Returns (DisplayFilter{}, false)
+// for empty input.
+//
+// Detection order:
+//  1. IP pattern    — starts with a digit and contains only [0-9.*]
+//  2. Port pattern  — starts with ":" OR is a pure integer ≤ 65535
+//  3. Protocol name — matches knownProtocols allow-list
+//  4. Default       — treat as DNS/domain wildcard (FilterDNS)
+func ParseSearchPattern(s string) (DisplayFilter, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return DisplayFilter{}, false
+	}
+
+	// 1. IP pattern
+	if isIPPattern(s) {
+		return MakeFilter(FilterIP, s), true
+	}
+
+	// 2. Port pattern — ":443" or "443"
+	portStr := s
+	if strings.HasPrefix(s, ":") {
+		portStr = s[1:]
+	}
+	if n, err := strconv.Atoi(portStr); err == nil && n >= 0 && n <= 65535 {
+		return MakeFilter(FilterPort, portStr), true
+	}
+
+	// 3. Protocol allow-list
+	if knownProtocols[strings.ToLower(s)] {
+		return MakeFilter(FilterProtocol, strings.ToLower(s)), true
+	}
+
+	// 4. Default: domain/SNI wildcard
+	return MakeFilter(FilterDNS, s), true
+}
+
+// isIPPattern returns true when s looks like an IP address or IP glob pattern
+// (starts with a digit, contains only digits, dots, and asterisks).
+func isIPPattern(s string) bool {
+	if len(s) == 0 || s[0] < '0' || s[0] > '9' {
+		return false
+	}
+	for _, ch := range s {
+		if ch != '.' && ch != '*' && (ch < '0' || ch > '9') {
+			return false
+		}
+	}
+	return true
 }

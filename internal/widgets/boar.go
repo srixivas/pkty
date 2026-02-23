@@ -6,51 +6,51 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// boarFrames holds 4 animation frames of the ASCII boar (6 rows each).
+// boarFrames holds 4 animation frames of the ASCII boar (6 rows each, 15 chars wide).
 //
-// Stable rows (every frame):
+// Stable rows (identical every frame):
 //
-//	row 1 — eyes      (oo  oo)
-//	row 2 — snout     \| (;;) |/  (tusks)
+//	row 1 — eyes      /(o  o)\
+//	row 2 — snout     \| (;;)  |/  (tusks)
 //	row 3 — chin      \___/
 //
 // Animated rows:
 //
-//	row 0 — ears      /\  /\  (relaxed)  vs  |\  /|  (pricked)
-//	row 4 — legs      cycle: forward → neutral → back → neutral
-//	row 5 — hooves    cycle: wide-out  → straight → wide-in → straight
+//	row 0 — ears      /\  /\  (relaxed)  vs  |\  /|  (pricked, odd frames)
+//	row 4 — legs      forward → straight → back → lifting
+//	row 5 — hooves    wide-out → straight → wide-in → straight
 var boarFrames = [4][6]string{
 	{ // Frame 0: ears relaxed, legs forward
-		"    /\\  /\\  ",
-		"    (oo  oo)  ",
-		"  \\| (;;) |/ ",
-		"     \\___/   ",
-		"    //  \\\\  ",
-		"   //    \\\\ ",
+		"      /\\  /\\   ",
+		"     /(o  o)\\  ",
+		"   \\| (;;)  |/ ",
+		"      \\___/    ",
+		"      //  \\\\   ",
+		"     //    \\\\  ",
 	},
-	{ // Frame 1: ears pricked, legs neutral (hooves tucked)
-		"    |\\  /|   ",
-		"    (oo  oo)  ",
-		"  \\| (;;) |/ ",
-		"     \\___/   ",
-		"      |  |    ",
-		"     |    |   ",
+	{ // Frame 1: ears pricked, legs straight
+		"      |\\  /|   ",
+		"     /(o  o)\\  ",
+		"   \\| (;;)  |/ ",
+		"      \\___/    ",
+		"      ||  ||   ",
+		"      |    |   ",
 	},
 	{ // Frame 2: ears relaxed, legs back
-		"    /\\  /\\   ",
-		"    (oo  oo)   ",
-		"  \\| (;;) |/  ",
-		"     \\___/    ",
-		"      \\  /    ",
-		"       \\/     ",
+		"      /\\  /\\   ",
+		"     /(o  o)\\  ",
+		"   \\| (;;)  |/ ",
+		"      \\___/    ",
+		"      \\\\  //   ",
+		"      \\\\    // ",
 	},
-	{ // Frame 3: ears pricked, legs neutral (hooves flared)
-		"    |\\  /|    ",
-		"    (oo  oo)   ",
-		"  \\| (;;) |/  ",
-		"     \\___/    ",
-		"      |  |     ",
-		"     /    \\   ",
+	{ // Frame 3: ears pricked, legs lifting
+		"      |\\  /|   ",
+		"     /(o  o)\\  ",
+		"   \\| (;;)  |/ ",
+		"      \\___/    ",
+		"      /|  |\\   ",
+		"      |    |   ",
 	},
 }
 

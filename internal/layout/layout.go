@@ -64,6 +64,7 @@ type Model struct {
 	remoteHosts *widgets.RemoteHostsWidget
 	tlsInspect  *widgets.TLSInspectorWidget
 	filterBar   *widgets.FilterBar
+	searchBar   *widgets.SearchBar
 
 	displayFilters *widgets.DisplayFilterSet
 
@@ -133,6 +134,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		remoteHosts:    widgets.NewRemoteHostsWidget(),
 		tlsInspect:     widgets.NewTLSInspectorWidget(),
 		filterBar:      widgets.NewFilterBar(),
+		searchBar:      widgets.NewSearchBar(),
 		displayFilters: ds,
 		focusTarget:    FocusCentre,
 		bottomFocus:    BottomProtoDist,
@@ -181,6 +183,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 
+		// Search bar eats all input when active
+		if m.searchBar.Active() {
+			var cmd tea.Cmd
+			m.searchBar, cmd = m.searchBar.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			return m, tea.Batch(cmds...)
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -191,6 +203,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "/":
 			m.filterBar.Activate()
+			return m, nil
+
+		case "?":
+			m.searchBar.Activate()
 			return m, nil
 
 		case "D":
@@ -256,6 +272,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case widgets.DisplayFilterToggleMsg:
 		m.displayFilters.Toggle(msg.Filter)
 		m.inspector.List().RebuildFiltered()
+
+	case widgets.SearchApplyMsg:
+		if f, ok := widgets.ParseSearchPattern(msg.Pattern); ok {
+			m.displayFilters.Toggle(f)
+			m.inspector.List().RebuildFiltered()
+		}
 
 	case widgets.FilterApplyMsg:
 		if m.OnFilterApply != nil {
@@ -434,7 +456,7 @@ func (m Model) View() string {
 		if !m.capturing && m.hasBackend {
 			spaceHint = "SPACE: resume"
 		}
-		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  %s  q: quit",
+		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  ?: search  %s  q: quit",
 			m.packetCount, pane, focusHint, spaceHint)
 		if filterView != "" {
 			statusText += "  |  " + filterView
@@ -505,6 +527,10 @@ func (m Model) View() string {
 	)
 
 	displayBar := m.renderDisplayFilterBar()
+	if m.searchBar.Active() {
+		m.searchBar.SetWidth(m.width)
+		displayBar = m.displayBarStyle.Width(m.width).Render(m.searchBar.View())
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, displayBar, topRow, bottomRow, statusBar)
 }
 
