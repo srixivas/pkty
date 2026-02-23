@@ -2,11 +2,16 @@ package layout
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/gopacket/layers"
 	"github.com/c0d343v3r/netdash/internal/config"
 	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/netdash/internal/resolve"
+	"github.com/c0d343v3r/netdash/internal/session"
+	"github.com/c0d343v3r/netdash/internal/store"
 	"github.com/c0d343v3r/netdash/internal/widgets"
 )
 
@@ -16,6 +21,9 @@ type DNSMsg events.DNSEvent
 type TLSMsg events.TLSEvent
 type HTTPMsg events.HTTPEvent
 type CaptureErrMsg struct{ Err error }
+
+// SaveStatusMsg carries the result of an S-key pcap save.
+type SaveStatusMsg struct{ Text string }
 
 const (
 	FocusCentre = 0
@@ -38,6 +46,7 @@ type Model struct {
 
 	// Widgets
 	inspector   *widgets.PacketInspector
+	netGraph    *widgets.NetGraphWidget
 	connections *widgets.ConnectionsWidget
 	dns         *widgets.DNSWidget
 	bandwidth   *widgets.BandwidthWidget
@@ -51,15 +60,31 @@ type Model struct {
 	bus           *events.EventBus
 	OnFilterApply func(expr string) error
 
+	// Persistence
+	linkType    layers.LinkType
+	saveDir     string
+	sqliteStore *store.SQLiteStore
+	saveStatus  string
+
+	// Reverse DNS
+	resolver *resolve.Resolver
+
 	packetCount uint64
 	captureErr  error
 	focusTarget int
 	bottomFocus int
+	centreMode  int // 0 = PacketInspector, 1 = NetGraph
 	statusStyle    lipgloss.Style
 	filterStyle    lipgloss.Style
 	displayBarStyle lipgloss.Style
 	displayBarActive lipgloss.Style
 }
+
+// SetLinkType sets the pcap link-layer type used when saving captures.
+func (m *Model) SetLinkType(lt layers.LinkType) { m.linkType = lt }
+
+// SetSQLiteStore wires an optional SQLite store for continuous event logging.
+func (m *Model) SetSQLiteStore(s *store.SQLiteStore) { m.sqliteStore = s }
 
 func New(cfg *config.Config, bus *events.EventBus) Model {
 	ds := widgets.NewDisplayFilterSet()
@@ -69,7 +94,14 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 	m := Model{
 		cfg:            cfg,
 		bus:            bus,
+		saveDir:        session.DefaultSaveDir(),
+		resolver:       resolve.New(),
 		inspector:      insp,
+		netGraph:       func() *widgets.NetGraphWidget {
+			ng := widgets.NewNetGraphWidget()
+			ng.SetSourceName(cfg.Capture.Interface)
+			return ng
+		}(),
 		connections:    widgets.NewConnectionsWidget(),
 		dns:            widgets.NewDNSWidget(),
 		bandwidth:      widgets.NewBandwidthWidget(),
@@ -80,6 +112,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		displayFilters: ds,
 		focusTarget:    FocusCentre,
 		bottomFocus:    BottomProtoDist,
+		centreMode:     0,
 		statusStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")).
 			Background(lipgloss.Color("236")).
@@ -127,6 +160,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 
+		case "S":
+			cmds = append(cmds, m.savePcapCmd())
+			return m, tea.Batch(cmds...)
+
 		case "/":
 			m.filterBar.Activate()
 			return m, nil
@@ -135,6 +172,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Clear all display filters
 			m.displayFilters.Clear()
 			m.inspector.List().RebuildFiltered()
+			return m, nil
+
+		case "n":
+			m.centreMode = (m.centreMode + 1) % 2
+			m.updateFocus()
 			return m, nil
 
 		case "1":
@@ -170,6 +212,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case SaveStatusMsg:
+		m.saveStatus = msg.Text
+
 	case widgets.DisplayFilterToggleMsg:
 		m.displayFilters.Toggle(msg.Filter)
 		m.inspector.List().RebuildFiltered()
@@ -190,6 +235,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.packetCount++
 		evt := events.PacketEvent(msg)
 
+		if m.sqliteStore != nil {
+			m.sqliteStore.WritePacket(evt)
+		}
+
+		// Fire reverse DNS lookups for IPs we haven't resolved yet.
+		if evt.SrcIP != nil {
+			if cmd := m.resolver.Resolve(evt.SrcIP.String()); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+		if evt.DstIP != nil {
+			if cmd := m.resolver.Resolve(evt.DstIP.String()); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+
 		w, cmd := m.inspector.Update(evt)
 		m.inspector = w.(*widgets.PacketInspector)
 		if cmd != nil {
@@ -200,20 +261,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.bandwidth.Update(evt)
 		m.protoDist.Update(evt)
 		m.remoteHosts.Update(evt)
+		m.netGraph.Update(evt)
 
 		cmds = append(cmds, m.listenPackets())
 
 	case DNSMsg:
 		evt := events.DNSEvent(msg)
+		if m.sqliteStore != nil {
+			m.sqliteStore.WriteDNS(evt)
+		}
 		m.dns.Update(evt)
 		if evt.ResolvedIP != nil {
+			ip := evt.ResolvedIP.String()
+			// Seed resolver so we don't fire a redundant PTR lookup for this IP.
+			m.resolver.Seed(ip, evt.QueryName)
 			m.displayFilters.AddDNSMapping(evt.QueryName, evt.ResolvedIP)
-			m.remoteHosts.AddIPName(evt.ResolvedIP.String(), evt.QueryName)
+			m.remoteHosts.AddIPName(ip, evt.QueryName)
+			m.netGraph.AddIPName(ip, evt.QueryName)
 		}
 		cmds = append(cmds, m.listenDNS())
 
+	case resolve.Msg:
+		if msg.Name != "" {
+			m.remoteHosts.AddIPName(msg.IP, msg.Name)
+			m.netGraph.AddIPName(msg.IP, msg.Name)
+		}
+
 	case TLSMsg:
 		evt := events.TLSEvent(msg)
+		if m.sqliteStore != nil {
+			m.sqliteStore.WriteTLS(evt)
+		}
 		m.tlsInspect.Update(evt)
 		if evt.SNI != "" {
 			m.displayFilters.AddSNIMapping(evt.SNI, evt.DstIP)
@@ -234,6 +312,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) routeKey(msg tea.KeyMsg) tea.Cmd {
 	switch m.focusTarget {
 	case FocusCentre:
+		if m.centreMode == 1 {
+			var cmd tea.Cmd
+			var w widgets.Widget
+			w, cmd = m.netGraph.Update(msg)
+			m.netGraph = w.(*widgets.NetGraphWidget)
+			return cmd
+		}
 		var cmd tea.Cmd
 		var w widgets.Widget
 		w, cmd = m.inspector.Update(msg)
@@ -297,13 +382,19 @@ func (m Model) View() string {
 		statusBar = m.statusStyle.Width(m.width).Render(m.filterBar.View())
 	} else {
 		pane := m.inspector.PaneName()
+		if m.centreMode == 1 {
+			pane = m.netGraph.PaneName()
+		}
 		filterView := m.filterBar.View()
 
 		focusHint := focusName(m.focusTarget, m.bottomFocus)
-		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  /: bpf  q: quit",
+		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  q: quit",
 			m.packetCount, pane, focusHint)
 		if filterView != "" {
 			statusText += "  |  " + filterView
+		}
+		if m.saveStatus != "" {
+			statusText += "  |  " + m.saveStatus
 		}
 		statusBar = m.statusStyle.Width(m.width).Render(statusText)
 	}
@@ -335,9 +426,17 @@ func (m Model) View() string {
 		m.bandwidth.View(),
 	)
 
-	// Centre panel
-	m.inspector.SetSize(centreW, mainH)
-	centreView := m.inspector.View()
+	// Centre panel — tab bar (1 row) + widget (mainH-1 rows)
+	tabBar := m.renderCentreTabBar(centreW)
+	var centreContent string
+	if m.centreMode == 1 {
+		m.netGraph.SetSize(centreW, mainH-1)
+		centreContent = m.netGraph.View()
+	} else {
+		m.inspector.SetSize(centreW, mainH-1)
+		centreContent = m.inspector.View()
+	}
+	centreView := lipgloss.JoinVertical(lipgloss.Left, tabBar, centreContent)
 
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, leftView, centreView, rightView)
 	topRow = lipgloss.NewStyle().Height(mainH).MaxHeight(mainH).Render(topRow)
@@ -359,7 +458,9 @@ func (m Model) View() string {
 }
 
 func (m *Model) updateFocus() {
-	m.inspector.SetFocused(m.focusTarget == FocusCentre)
+	isCentre := m.focusTarget == FocusCentre
+	m.inspector.SetFocused(isCentre && m.centreMode == 0)
+	m.netGraph.SetFocused(isCentre && m.centreMode == 1)
 	m.connections.SetFocused(m.focusTarget == FocusLeft)
 	m.dns.SetFocused(m.focusTarget == FocusRight)
 	m.protoDist.SetFocused(m.focusTarget == FocusBottom && m.bottomFocus == BottomProtoDist)
@@ -446,6 +547,66 @@ func (m Model) listenHTTP() tea.Cmd {
 
 func (m *Model) recalcSizes() {
 	// Sizes are set directly in View() now for precision
+}
+
+// savePcapCmd snapshots all current packet rows and writes them to a pcap file
+// in a background goroutine so the UI remains responsive.
+func (m *Model) savePcapCmd() tea.Cmd {
+	rows := m.inspector.List().AllRows()
+	// Copy event slice synchronously on the UI goroutine to avoid data races.
+	pkts := make([]events.PacketEvent, len(rows))
+	for i, r := range rows {
+		pkts[i] = r.Event
+	}
+	linkType := m.linkType
+	saveDir := m.saveDir
+	return func() tea.Msg {
+		path, count, err := session.SavePcap(saveDir, linkType, pkts)
+		if err != nil {
+			return SaveStatusMsg{Text: fmt.Sprintf("Save failed: %v", err)}
+		}
+		return SaveStatusMsg{Text: fmt.Sprintf("Saved %d pkts → %s", count, path)}
+	}
+}
+
+// renderCentreTabBar renders a 1-row tab strip above the centre widget.
+func (m Model) renderCentreTabBar(width int) string {
+	type tab struct {
+		label string
+		mode  int
+	}
+	tabs := []tab{
+		{"Packet Inspector", 0},
+		{"Network Diagram", 1},
+	}
+
+	activeStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("0")).
+		Background(lipgloss.Color("226")).
+		Padding(0, 1)
+	inactiveStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Padding(0, 1)
+	barStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("234")).
+		Width(width)
+
+	var parts []string
+	for _, t := range tabs {
+		if t.mode == m.centreMode {
+			parts = append(parts, activeStyle.Render(t.label))
+		} else {
+			parts = append(parts, inactiveStyle.Render(t.label))
+		}
+	}
+
+	hintStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("238")).
+		Background(lipgloss.Color("234"))
+	hint := hintStyle.Render("  n: cycle")
+
+	return barStyle.Render(" " + strings.Join(parts, " ") + hint)
 }
 
 // displayFilterBar renders the top-level 1-line filter state bar.

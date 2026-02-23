@@ -336,6 +336,11 @@ func (p *PacketList) notifySelect() {
 	}
 }
 
+// AllRows returns all packet rows (unfiltered) for export purposes.
+func (p *PacketList) AllRows() []PacketRow {
+	return p.rows
+}
+
 func truncStr(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return ""

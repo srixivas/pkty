@@ -13,15 +13,18 @@ import (
 	"github.com/c0d343v3r/netdash/internal/events"
 	"github.com/c0d343v3r/netdash/internal/layout"
 	"github.com/c0d343v3r/netdash/internal/parser"
+	"github.com/c0d343v3r/netdash/internal/store"
 )
 
 var (
-	version    = "dev"
-	configPath = flag.String("config", "", "path to config file (default: ~/.config/netdash/config.toml)")
-	iface      = flag.String("i", "", "network interface to capture on")
-	pcapFile   = flag.String("r", "", "read from pcap file instead of live capture")
-	bpfFilter  = flag.String("f", "", "BPF filter expression")
-	showVer    = flag.Bool("version", false, "print version and exit")
+	version      = "dev"
+	configPath   = flag.String("config", "", "path to config file (default: ~/.config/netdash/config.toml)")
+	iface        = flag.String("i", "", "network interface to capture on")
+	pcapFile     = flag.String("r", "", "read from pcap file instead of live capture")
+	bpfFilter    = flag.String("f", "", "BPF filter expression")
+	showVer      = flag.Bool("version", false, "print version and exit")
+	sqliteEnable = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/netdash/netdash.db)")
+	sqliteDB     = flag.String("sqlite-db", "", "SQLite database path (enables SQLite logging, overrides default path)")
 )
 
 func main() {
@@ -112,16 +115,42 @@ func main() {
 		}()
 	}
 
+	// Optionally open a SQLite packet log.
+	var sqliteStore *store.SQLiteStore
+	sqliteDBPath := *sqliteDB
+	if sqliteDBPath == "" && *sqliteEnable {
+		sqliteDBPath = store.DefaultPath()
+	}
+	if sqliteDBPath != "" {
+		s, err := store.NewSQLiteStore(sqliteDBPath)
+		if err != nil {
+			log.Fatalf("sqlite: %v", err)
+		}
+		sqliteStore = s
+		log.Printf("SQLite logging to %s", sqliteDBPath)
+	}
+
 	model := layout.New(cfg, bus)
 	if backend != nil {
 		model.OnFilterApply = func(expr string) error {
 			return backend.SetBPFFilter(expr)
 		}
+		model.SetLinkType(backend.LinkType())
 	}
+	if sqliteStore != nil {
+		model.SetSQLiteStore(sqliteStore)
+	}
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("error running netdash: %v", err)
 	}
 	cancel()
+
+	if sqliteStore != nil {
+		if err := sqliteStore.Close(); err != nil {
+			log.Printf("sqlite close: %v", err)
+		}
+	}
 }
