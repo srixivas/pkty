@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  ci:
+    name: Build / Vet / Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      # libpcap is required by gopacket for the capture backend.
+      # The widgets/layout packages themselves are CGO-free; only the
+      # cmd/netdash binary and capture package need the library.
+      - name: Install libpcap
+        run: sudo apt-get update -q && sudo apt-get install -y libpcap-dev
+
+      - name: Download modules
+        run: go mod download
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      # Tests run with CGO_ENABLED=0 so the test binaries do not need
+      # libpcap linkage (no capture/store code is exercised in tests yet).
+      # The store package (mattn/go-sqlite3) is excluded for the same reason.
+      - name: Test
+        run: CGO_ENABLED=0 go test ./internal/widgets/... -count=1 -race -timeout 60s
