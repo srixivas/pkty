@@ -31,7 +31,7 @@ func main() {
 	flag.Parse()
 
 	if *showVer {
-		fmt.Printf("netdash %s\n", version)
+		fmt.Printf("%s %s\n", layout.AppName, version)
 		os.Exit(0)
 	}
 

@@ -16,6 +16,10 @@ import (
 	"github.com/c0d343v3r/netdash/internal/widgets"
 )
 
+// AppName is the canonical display name of the application.
+// Change this once here when the name is finalised.
+const AppName = "netdash"
+
 type animTickMsg time.Time
 
 func animTickCmd() tea.Cmd {
@@ -451,32 +455,8 @@ func (m Model) View() string {
 	}
 
 	// Status bar
-	var statusBar string
 	m.filterBar.SetWidth(m.width)
-	if m.filterBar.Active() {
-		statusBar = m.statusStyle.Width(m.width).Render(m.filterBar.View())
-	} else {
-		pane := m.inspector.PaneName()
-		if m.centreMode == 1 {
-			pane = m.netGraph.PaneName()
-		}
-		filterView := m.filterBar.View()
-
-		focusHint := focusName(m.focusTarget, m.bottomFocus)
-		spaceHint := "SPACE: pause"
-		if !m.capturing && m.hasBackend {
-			spaceHint = "SPACE: resume"
-		}
-		statusText := fmt.Sprintf(" netdash  |  Packets: %d  |  [%s]  |  Focus: %s  |  1-4: panels  tab: sub  Enter: filter  D: clear  S: save pcap  /: bpf  ?: search  %s  q: quit",
-			m.packetCount, pane, focusHint, spaceHint)
-		if filterView != "" {
-			statusText += "  |  " + filterView
-		}
-		if m.saveStatus != "" {
-			statusText += "  |  " + m.saveStatus
-		}
-		statusBar = m.statusStyle.Width(m.width).Render(statusText)
-	}
+	statusBar := m.renderStatusBar()
 
 	bottomH := m.cfg.Layout.BottomPanelHeight
 	mainH := m.height - bottomH - 2 // -1 statusBar, -1 displayFilterBar
@@ -695,6 +675,77 @@ func (m Model) renderCentreTabBar(width int) string {
 	hint := hintStyle.Render("  n: cycle")
 
 	return barStyle.Render(" " + strings.Join(parts, " ") + hint)
+}
+
+// renderStatusBar builds the bottom status bar. When the BPF filter bar is
+// active it shows the filter input instead. Key bindings are rendered with a
+// bright key label and a muted description so they are easy to scan.
+func (m Model) renderStatusBar() string {
+	const bg = "236" // must match statusStyle background
+
+	if m.filterBar.Active() {
+		return m.statusStyle.Width(m.width).Render(m.filterBar.View())
+	}
+
+	pane := m.inspector.PaneName()
+	if m.centreMode == 1 {
+		pane = m.netGraph.PaneName()
+	}
+
+	spaceDesc := "pause"
+	if !m.capturing && m.hasBackend {
+		spaceDesc = "resume"
+	}
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")).Bold(true).
+		Background(lipgloss.Color(bg))
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("246")).
+		Background(lipgloss.Color(bg))
+	sepStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("238")).
+		Background(lipgloss.Color(bg))
+	metaStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252")).
+		Background(lipgloss.Color(bg))
+	nameStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("214")).Bold(true).
+		Background(lipgloss.Color(bg))
+
+	hint := func(key, desc string) string {
+		return keyStyle.Render(key) + descStyle.Render(":"+desc)
+	}
+	gap := sepStyle.Render("  ")
+	pipe := sepStyle.Render("  │  ")
+
+	hints := strings.Join([]string{
+		hint("1-4", "focus"),
+		hint("tab", "sub"),
+		hint("n", "view"),
+		hint("/", "bpf"),
+		hint("?", "search"),
+		hint("Enter", "filter"),
+		hint("D", "clear"),
+		hint("S", "save"),
+		hint("spc", spaceDesc),
+		hint("q", "quit"),
+	}, gap)
+
+	bar := nameStyle.Render(" "+AppName) +
+		pipe + metaStyle.Render(fmt.Sprintf("pkts: %d", m.packetCount)) +
+		pipe + metaStyle.Render("["+pane+"]") +
+		pipe + metaStyle.Render(focusName(m.focusTarget, m.bottomFocus)) +
+		pipe + hints
+
+	if fv := m.filterBar.View(); fv != "" {
+		bar += pipe + metaStyle.Render(fv)
+	}
+	if m.saveStatus != "" {
+		bar += pipe + metaStyle.Render(m.saveStatus)
+	}
+
+	return m.statusStyle.Width(m.width).Render(bar)
 }
 
 // displayFilterBar renders the top-level 1-line filter state bar.
