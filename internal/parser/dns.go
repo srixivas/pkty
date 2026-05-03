@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/gopacket/layers"
 
-	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/pkty/internal/events"
 )
 
 // parseDNS extracts DNS query/response data and emits DNSEvents.

@@ -10,16 +10,16 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 
-	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/pkty/internal/events"
 )
 
 // DefaultSaveDir returns the default directory for saved pcap files.
 func DefaultSaveDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "netdash-saves"
+		return "pkty-saves"
 	}
-	return filepath.Join(home, ".local", "share", "netdash", "saves")
+	return filepath.Join(home, ".local", "share", "pkty", "saves")
 }
 
 // SavePcap writes packets to a timestamped pcap file in dir.
@@ -29,7 +29,7 @@ func SavePcap(dir string, linkType layers.LinkType, packets []events.PacketEvent
 		return "", 0, fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 
-	name := fmt.Sprintf("netdash-%s.pcap", time.Now().Format("20060102-150405"))
+	name := fmt.Sprintf("pkty-%s.pcap", time.Now().Format("20060102-150405"))
 	path := filepath.Join(dir, name)
 
 	f, err := os.Create(path)

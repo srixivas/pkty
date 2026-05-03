@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/pkty/internal/events"
 )
 
 // ── isPrivateIP ───────────────────────────────────────────────────────────────

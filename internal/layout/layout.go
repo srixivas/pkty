@@ -8,17 +8,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/gopacket/layers"
-	"github.com/c0d343v3r/netdash/internal/config"
-	"github.com/c0d343v3r/netdash/internal/events"
-	"github.com/c0d343v3r/netdash/internal/resolve"
-	"github.com/c0d343v3r/netdash/internal/session"
-	"github.com/c0d343v3r/netdash/internal/store"
-	"github.com/c0d343v3r/netdash/internal/widgets"
+	"github.com/c0d343v3r/pkty/internal/config"
+	"github.com/c0d343v3r/pkty/internal/events"
+	"github.com/c0d343v3r/pkty/internal/resolve"
+	"github.com/c0d343v3r/pkty/internal/session"
+	"github.com/c0d343v3r/pkty/internal/store"
+	"github.com/c0d343v3r/pkty/internal/widgets"
 )
 
 // AppName is the canonical display name of the application.
 // Change this once here when the name is finalised.
-const AppName = "netdash"
+const AppName = "pkty"
 
 type animTickMsg time.Time
 

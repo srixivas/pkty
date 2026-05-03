@@ -7,8 +7,8 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 
-	"github.com/c0d343v3r/netdash/internal/capture"
-	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/pkty/internal/capture"
+	"github.com/c0d343v3r/pkty/internal/events"
 )
 
 // Parser decodes raw packets and emits typed events to the EventBus.

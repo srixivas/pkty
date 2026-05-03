@@ -23,7 +23,7 @@ jobs:
 
       # libpcap is required by gopacket for the capture backend.
       # The widgets/layout packages themselves are CGO-free; only the
-      # cmd/netdash binary and capture package need the library.
+      # cmd/pkty binary and capture package need the library.
       - name: Install libpcap
         run: sudo apt-get update -q && sudo apt-get install -y libpcap-dev
 
@@ -36,8 +36,7 @@ jobs:
       - name: Build
         run: go build ./...
 
-      # Tests run with CGO_ENABLED=0 so the test binaries do not need
-      # libpcap linkage (no capture/store code is exercised in tests yet).
-      # The store package (mattn/go-sqlite3) is excluded for the same reason.
+      # Tests run with CGO_ENABLED=0 — no libpcap/sqlite headers needed.
+      # parser is excluded: it imports capture which pulls in gopacket/pcap (CGO).
       - name: Test
-        run: CGO_ENABLED=0 go test ./internal/widgets/... -count=1 -race -timeout 60s
+        run: CGO_ENABLED=0 go test ./internal/widgets/... ./internal/events/... ./internal/resolve/... -count=1 -race -timeout 60s

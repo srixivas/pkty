@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/c0d343v3r/netdash/internal/events"
+	"github.com/c0d343v3r/pkty/internal/events"
 )
 
 const schema = `
@@ -55,9 +55,9 @@ CREATE TABLE IF NOT EXISTS tls_events (
 func DefaultPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "netdash.db"
+		return "pkty.db"
 	}
-	return filepath.Join(home, ".local", "share", "netdash", "netdash.db")
+	return filepath.Join(home, ".local", "share", "pkty", "pkty.db")
 }
 
 type writeKind int

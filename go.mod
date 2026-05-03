@@ -1,4 +1,4 @@
-module github.com/c0d343v3r/netdash
+module github.com/c0d343v3r/pkty
 
 go 1.19
 

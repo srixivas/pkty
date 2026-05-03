@@ -8,22 +8,22 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/c0d343v3r/netdash/internal/capture"
-	"github.com/c0d343v3r/netdash/internal/config"
-	"github.com/c0d343v3r/netdash/internal/events"
-	"github.com/c0d343v3r/netdash/internal/layout"
-	"github.com/c0d343v3r/netdash/internal/parser"
-	"github.com/c0d343v3r/netdash/internal/store"
+	"github.com/c0d343v3r/pkty/internal/capture"
+	"github.com/c0d343v3r/pkty/internal/config"
+	"github.com/c0d343v3r/pkty/internal/events"
+	"github.com/c0d343v3r/pkty/internal/layout"
+	"github.com/c0d343v3r/pkty/internal/parser"
+	"github.com/c0d343v3r/pkty/internal/store"
 )
 
 var (
 	version      = "dev"
-	configPath   = flag.String("config", "", "path to config file (default: ~/.config/netdash/config.toml)")
+	configPath   = flag.String("config", "", "path to config file (default: ~/.config/pkty/config.toml)")
 	iface        = flag.String("i", "", "network interface to capture on")
 	pcapFile     = flag.String("r", "", "read from pcap file instead of live capture")
 	bpfFilter    = flag.String("f", "", "BPF filter expression")
 	showVer      = flag.Bool("version", false, "print version and exit")
-	sqliteEnable = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/netdash/netdash.db)")
+	sqliteEnable = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/pkty/pkty.db)")
 	sqliteDB     = flag.String("sqlite-db", "", "SQLite database path (enables SQLite logging, overrides default path)")
 )
 
@@ -145,7 +145,7 @@ func main() {
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
-		log.Fatalf("error running netdash: %v", err)
+		log.Fatalf("error running pkty: %v", err)
 	}
 	cancel()
 

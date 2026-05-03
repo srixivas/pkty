@@ -1,12 +1,64 @@
-# netdash
+# pkty
 
 A terminal-based network monitor written in Go. Captures live traffic via libpcap (or reads pcap files offline) and displays a real-time multi-panel dashboard using [bubbletea](https://github.com/charmbracelet/bubbletea) + [lipgloss](https://github.com/charmbracelet/lipgloss).
 
 ```
-sudo ./netdash -i en0
+sudo ./pkty -i en0
 ```
 
 Press `S` at any time to save everything captured so far to a pcap file. Pass `--sqlite` to continuously log all packets, DNS, and TLS events to a SQLite database.
+
+---
+
+## Installation
+
+### Download binary (recommended)
+
+Download a pre-built binary from the [Releases](../../releases) page, unpack it, and move it somewhere on your `$PATH`:
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/c0d343v3r/pkty/releases/latest/download/pkty_darwin_arm64.tar.gz | tar xz
+sudo mv pkty /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/c0d343v3r/pkty/releases/latest/download/pkty_darwin_amd64.tar.gz | tar xz
+sudo mv pkty /usr/local/bin/
+
+# Linux (x86-64)
+curl -L https://github.com/c0d343v3r/pkty/releases/latest/download/pkty_linux_amd64.tar.gz | tar xz
+sudo mv pkty /usr/local/bin/
+```
+
+### Build from source
+
+Requires Go 1.19+ with CGO enabled, and libpcap headers (`libpcap-dev` on Linux — included on macOS).
+
+```bash
+git clone https://github.com/c0d343v3r/pkty
+cd pkty
+make build       # produces ./pkty
+```
+
+Or via `go install` (CGO + libpcap headers required):
+
+```bash
+go install github.com/c0d343v3r/pkty/cmd/pkty@latest
+```
+
+### Prerequisites
+
+| Platform | Requirement |
+|----------|-------------|
+| macOS | Nothing extra — libpcap ships with the OS |
+| Linux | `sudo apt install libpcap-dev` (Debian/Ubuntu) or `sudo dnf install libpcap-devel` (Fedora) |
+| Both | Run as root or grant `cap_net_raw` (see below) |
+
+**Linux: run without sudo**
+```bash
+sudo setcap cap_net_raw+ep ./pkty
+./pkty -i eth0
+```
 
 ---
 
@@ -28,43 +80,32 @@ Press `S` at any time to save everything captured so far to a pcap file. Pass `-
 │  TCP ████████  60.2%   │  google.com     10.5M ███ │  SNI      Ver  Cipher  │
 │  UDP ████     20.1%    │  1.2.3.4         2.1M ██  │  ...                   │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ [status bar]  netdash | Packets: 1234 | [Packets] | Focus: Centre | ...     │
+│ [status bar]  pkty | Packets: 1234 | [Packets] | Focus: Centre | ...     │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Building
-
-Requires Go 1.19+ and libpcap headers (`libpcap-dev` on Linux, included on macOS).
+## Usage
 
 ```bash
-# Build
-make build          # or: go build -o netdash ./cmd/netdash
-
 # Live capture (requires root / cap_net_raw)
-sudo ./netdash -i en0
+sudo pkty -i en0
 
-# Read from pcap file
-./netdash -r capture.pcap
+# Read from pcap file (no root needed)
+pkty -r capture.pcap
 
 # With initial BPF filter
-sudo ./netdash -i en0 -f "tcp port 443"
+sudo pkty -i en0 -f "tcp port 443"
 
-# Enable SQLite logging (default path: ~/.local/share/netdash/netdash.db)
-sudo ./netdash -i en0 --sqlite
+# Enable SQLite logging (default path: ~/.local/share/pkty/pkty.db)
+sudo pkty -i en0 --sqlite
 
 # Enable SQLite logging to a specific path
-sudo ./netdash -i en0 --sqlite-db ~/captures/live.db
+sudo pkty -i en0 --sqlite-db ~/captures/live.db
 
 # Print version
-./netdash -version
-```
-
-### Linux capability (no sudo)
-```bash
-sudo setcap cap_net_raw+ep ./netdash
-./netdash -i eth0
+pkty -version
 ```
 
 ---
@@ -122,7 +163,7 @@ The `/` BPF filter is separate — it narrows what the capture backend hands to 
 Press `S` at any point during a live capture to snapshot everything in the current packet list to a pcap file:
 
 ```
-~/.local/share/netdash/saves/netdash-20260222-143000.pcap
+~/.local/share/pkty/saves/pkty-20260222-143000.pcap
 ```
 
 The file is fully compatible with Wireshark and `tcpdump -r`. The save runs in the background so the UI stays responsive; a confirmation appears in the status bar when done.
@@ -132,12 +173,12 @@ The file is fully compatible with Wireshark and `tcpdump -r`. The save runs in t
 Pass `--sqlite` (or `--sqlite-db <path>`) to continuously write all events to a SQLite database as they arrive:
 
 ```bash
-sudo ./netdash -i en0 --sqlite
+sudo ./pkty -i en0 --sqlite
 # or
-sudo ./netdash -i en0 --sqlite-db ~/captures/live.db
+sudo ./pkty -i en0 --sqlite-db ~/captures/live.db
 ```
 
-Default path: `~/.local/share/netdash/netdash.db`
+Default path: `~/.local/share/pkty/pkty.db`
 
 Three tables are written:
 
@@ -147,7 +188,7 @@ Three tables are written:
 | `dns_events` | DNS queries and responses — query name, record type, resolved IP, TTL |
 | `tls_events` | TLS handshakes — SNI, version, cipher suite |
 
-Writes are batched in transactions (up to 500 rows each) via an async goroutine so high packet rates never stall the TUI. The database uses WAL mode for concurrent read access while netdash is running.
+Writes are batched in transactions (up to 500 rows each) via an async goroutine so high packet rates never stall the TUI. The database uses WAL mode for concurrent read access while pkty is running.
 
 Query example:
 ```sql
@@ -159,7 +200,7 @@ SELECT query_name, resolved_ip, ttl FROM dns_events WHERE is_response = 1;
 
 ## Configuration
 
-Config file location: `~/.config/netdash/config.toml`
+Config file location: `~/.config/pkty/config.toml`
 See `config.example.toml` for all options.
 
 ```toml
@@ -219,7 +260,7 @@ Network interface / pcap file
 
 | Package | Path | Responsibility |
 |---------|------|----------------|
-| `main` | `cmd/netdash/` | Parses flags, loads config, wires all components, runs bubbletea |
+| `main` | `cmd/pkty/` | Parses flags, loads config, wires all components, runs bubbletea |
 | `config` | `internal/config/` | TOML config loading with defaults |
 | `events` | `internal/events/` | Typed event structs and `EventBus` |
 | `capture` | `internal/capture/` | `Backend` interface + libpcap and pcapfile implementations |

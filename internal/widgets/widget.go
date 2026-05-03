@@ -2,7 +2,7 @@ package widgets
 
 import tea "github.com/charmbracelet/bubbletea"
 
-// Widget is the interface every netdash widget must implement.
+// Widget is the interface every pkty widget must implement.
 // Widgets receive events through bubbletea's Msg system and render
 // their own view string for placement in the layout.
 type Widget interface {

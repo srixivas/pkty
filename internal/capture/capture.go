@@ -56,8 +56,8 @@ type ErrPrivilege struct {
 func (e *ErrPrivilege) Error() string {
 	return fmt.Sprintf("insufficient privileges for packet capture: %s\n\n"+
 		"To fix this:\n"+
-		"  Linux:  sudo setcap cap_net_raw+ep ./netdash   OR   sudo ./netdash\n"+
-		"  macOS:  sudo ./netdash   (requires /dev/bpf access)\n"+
+		"  Linux:  sudo setcap cap_net_raw+ep ./pkty   OR   sudo ./pkty\n"+
+		"  macOS:  sudo ./pkty   (requires /dev/bpf access)\n"+
 		"  Windows: install Npcap (https://npcap.com) and run as Administrator",
 		e.Reason)
 }

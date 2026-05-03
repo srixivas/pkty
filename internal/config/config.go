@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config holds all netdash configuration.
+// Config holds all pkty configuration.
 type Config struct {
 	Capture  CaptureConfig  `toml:"capture"`
 	Layout   LayoutConfig   `toml:"layout"`
@@ -99,5 +99,5 @@ func defaultPath() string {
 	if err != nil {
 		return "config.toml"
 	}
-	return filepath.Join(home, ".config", "netdash", "config.toml")
+	return filepath.Join(home, ".config", "pkty", "config.toml")
 }
