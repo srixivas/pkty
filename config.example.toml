@@ -1,0 +1,38 @@
+# netdash configuration
+# Place this file at ~/.config/netdash/config.toml
+
+[capture]
+# Network interface to capture on (leave empty to auto-detect)
+# interface = "en0"
+
+# Read from a pcap file instead of live capture
+# pcap_file = "/path/to/capture.pcap"
+
+# BPF filter expression (Berkeley Packet Filter syntax)
+# bpf_filter = "tcp port 443"
+
+# Maximum bytes to capture per packet
+snap_len = 65535
+
+# Enable promiscuous mode
+promiscuous = true
+
+[layout]
+# Panel widths/heights as number of terminal columns/rows
+left_panel_width = 30
+right_panel_width = 35
+bottom_panel_height = 12
+
+[widgets]
+# Enable or disable individual widgets
+packet_inspector = true
+connections = true
+dns_queries = true
+bandwidth = true
+protocol_distribution = true
+remote_hosts = true
+tls_inspector = true
+
+[theme]
+# Colour theme: "default"
+name = "default"
