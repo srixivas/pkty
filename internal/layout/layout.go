@@ -8,12 +8,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/gopacket/layers"
-	"github.com/c0d343v3r/pkty/internal/config"
-	"github.com/c0d343v3r/pkty/internal/events"
-	"github.com/c0d343v3r/pkty/internal/resolve"
-	"github.com/c0d343v3r/pkty/internal/session"
-	"github.com/c0d343v3r/pkty/internal/store"
-	"github.com/c0d343v3r/pkty/internal/widgets"
+	"github.com/srixivas/pkty/internal/config"
+	"github.com/srixivas/pkty/internal/events"
+	"github.com/srixivas/pkty/internal/resolve"
+	"github.com/srixivas/pkty/internal/session"
+	"github.com/srixivas/pkty/internal/store"
+	"github.com/srixivas/pkty/internal/widgets"
 )
 
 // AppName is the canonical display name of the application.

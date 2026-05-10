@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/c0d343v3r/pkty/internal/events"
+	"github.com/srixivas/pkty/internal/events"
 )
 
 const schema = `

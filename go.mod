@@ -1,4 +1,4 @@
-module github.com/c0d343v3r/pkty
+module github.com/srixivas/pkty
 
 go 1.19
 

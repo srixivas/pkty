@@ -8,12 +8,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/c0d343v3r/pkty/internal/capture"
-	"github.com/c0d343v3r/pkty/internal/config"
-	"github.com/c0d343v3r/pkty/internal/events"
-	"github.com/c0d343v3r/pkty/internal/layout"
-	"github.com/c0d343v3r/pkty/internal/parser"
-	"github.com/c0d343v3r/pkty/internal/store"
+	"github.com/srixivas/pkty/internal/capture"
+	"github.com/srixivas/pkty/internal/config"
+	"github.com/srixivas/pkty/internal/events"
+	"github.com/srixivas/pkty/internal/layout"
+	"github.com/srixivas/pkty/internal/parser"
+	"github.com/srixivas/pkty/internal/store"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/c0d343v3r/pkty/internal/events"
+	"github.com/srixivas/pkty/internal/events"
 )
 
 // parseTLS extracts TLS handshake info (SNI, version, cipher) from ClientHello.

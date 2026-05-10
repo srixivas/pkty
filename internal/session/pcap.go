@@ -10,7 +10,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 
-	"github.com/c0d343v3r/pkty/internal/events"
+	"github.com/srixivas/pkty/internal/events"
 )
 
 // DefaultSaveDir returns the default directory for saved pcap files.
