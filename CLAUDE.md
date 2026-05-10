@@ -67,7 +67,7 @@ git push origin v0.2.0
 
 `internal/parser/` and `internal/store/` are intentionally excluded from CI tests (require CGO + sqlite headers in a specific environment).
 
-## Known TODOs (from pkty-plan.md)
+## Known TODOs
 
 - `netgraph.go` top: wire `HTTPEvent.ContentType` for edge content-type annotation
 - TCP state machine in ConnectionsWidget (ESTABLISHED/TIME_WAIT/CLOSE_WAIT not tracked)
