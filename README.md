@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="demo/logo-transparent.png" width="300" alt="pkty owl logo" />
+  <img src="demo/logo.png" width="300" alt="pkty owl logo" />
 </p>
 
-<h1 align="center">pkty</h1>
+<h1 align="center">pkty 🦉</h1>
 
-<p align="center"><em>terminal-native packet intelligence — sniff, inspect, and understand your network without leaving the command line</em></p>
+<p align="center"><em>terminal-native packet intelligence — watch everything, miss nothing, never leave your terminal</em></p>
 
 <p align="center">
   <a href="https://github.com/srixivas/pkty/actions/workflows/ci.yml">
@@ -35,14 +35,14 @@ A real-time terminal network dashboard for macOS and Linux. Renders a multi-pane
 
 ## ✨ Features
 
-- 📡 Live capture via libpcap or offline pcap/pcapng replay
-- 🔍 Packet inspector — list → protocol detail tree → hex dump
+- 📡 Live capture via libpcap · offline pcap/pcapng replay — no root needed
+- 🕵️ Packet inspector — scrollable list → protocol detail tree → hex dump
 - 🌐 Connections, DNS queries, TLS/SNI, bandwidth sparkline, protocol distribution
-- 🗺️ ASCII network diagram with per-host TX/RX bars (`n` to toggle)
-- 🎯 Display filters — press `Enter` on any row in any widget to filter live
-- 🔧 BPF filter bar (`/`) for kernel-level capture filtering
-- 🔎 Reverse DNS resolution (PTR lookups, seeded from observed DNS traffic)
-- 💾 Save captures to pcap (`S` key) or log continuously to SQLite (`--sqlite`)
+- 🖧 ASCII network diagram with per-host TX/RX bars (`n` to toggle)
+- 🎯 Display filters — press `Enter` on any row in any widget to drill down instantly
+- ⚡ BPF filter bar (`/`) for kernel-level capture filtering before packets hit the UI
+- 🔎 Reverse DNS — PTR lookups seeded from observed DNS traffic in real time
+- 💾 Save to pcap (`S`) or log everything continuously to SQLite (`--sqlite`)
 
 ---
 
@@ -257,5 +257,5 @@ See `config.example.toml` for all options. CLI flags override the config file.
 ---
 
 <p align="center">
-  Built with <a href="https://claude.ai">Claude</a> &nbsp;·&nbsp; Mascot logo by <a href="https://gemini.google.com">Gemini</a>
+  Built with ❤️ using <a href="https://claude.ai">Claude</a> &nbsp;·&nbsp; 🦉 Mascot by <a href="https://gemini.google.com">Gemini</a>
 </p>
