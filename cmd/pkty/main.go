@@ -31,7 +31,17 @@ func main() {
 	flag.Parse()
 
 	if *showVer {
-		fmt.Printf("%s %s\n", layout.AppName, version)
+		fmt.Printf("\n")
+		fmt.Printf("     /\\_/\\     \n")
+		fmt.Printf("    ((@v@))    \n")
+		fmt.Printf("    ():::()    \n")
+		fmt.Printf("     (   )     \n")
+		fmt.Printf("    /|   |\\    \n")
+		fmt.Printf("     v   v     \n")
+		fmt.Printf("\n")
+		fmt.Printf("  pkty %s\n", version)
+		fmt.Printf("  terminal network inspector\n")
+		fmt.Printf("\n")
 		os.Exit(0)
 	}
 
