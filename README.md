@@ -131,6 +131,30 @@ sudo setcap cap_net_raw+ep ./pkty
 
 ---
 
+## Quick Start
+
+**1. Find your active interface:**
+
+```bash
+# macOS
+route get default | awk '/interface:/{print $2}'
+
+# Linux
+ip route get 1.1.1.1 | awk '{print $5; exit}'
+```
+
+> Typical values: `en0` or `en1` on macOS · `eth0`, `wlan0`, or `wlp2s0` on Linux
+
+**2. Launch:**
+
+```bash
+sudo pkty -i <interface>
+```
+
+Press `q` to quit. Check [Key Bindings](#key-bindings) for navigation.
+
+---
+
 ## Usage
 
 ```bash
