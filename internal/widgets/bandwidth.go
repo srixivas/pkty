@@ -15,7 +15,8 @@ type BandwidthWidget struct {
 	totalPackets uint64
 	samples      []bwSample // per-second samples
 	lastSecond   int64
-	currentBytes uint64
+	currentBytes   uint64
+	currentPackets uint64
 	width        int
 	height       int
 
@@ -55,14 +56,16 @@ func (b *BandwidthWidget) Update(msg tea.Msg) (Widget, tea.Cmd) {
 			b.lastSecond = sec
 		}
 		if sec > b.lastSecond {
-			b.samples = append(b.samples, bwSample{Bytes: b.currentBytes, Packets: 1})
+			b.samples = append(b.samples, bwSample{Bytes: b.currentBytes, Packets: b.currentPackets})
 			if len(b.samples) > 60 {
 				b.samples = b.samples[len(b.samples)-60:]
 			}
 			b.currentBytes = 0
+			b.currentPackets = 0
 			b.lastSecond = sec
 		}
 		b.currentBytes += uint64(evt.Length)
+		b.currentPackets++
 	}
 	return b, nil
 }
