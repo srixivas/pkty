@@ -1,4 +1,24 @@
-# pkty
+<p align="center">
+  <img src="demo/logo.png" width="96" alt="pkty owl logo" />
+</p>
+
+<h1 align="center">pkty</h1>
+
+<p align="center">
+  <a href="https://github.com/srixivas/pkty/actions/workflows/ci.yml">
+    <img src="https://github.com/srixivas/pkty/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://github.com/srixivas/pkty/releases/latest">
+    <img src="https://img.shields.io/github/v/release/srixivas/pkty" alt="Release" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-GPL_v2-blue.svg" alt="License: GPL v2" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="demo/demo.gif" alt="pkty demo" />
+</p>
 
 A real-time terminal network dashboard for macOS and Linux. Captures live traffic via libpcap (or reads pcap files offline) and renders a multi-panel TUI with packet inspection, DNS, TLS, connections, bandwidth, and protocol analytics — all in one view.
 
