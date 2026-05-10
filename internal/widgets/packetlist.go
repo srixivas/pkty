@@ -196,6 +196,7 @@ func (p *PacketList) Update(msg tea.Msg) (Widget, tea.Cmd) {
 }
 
 func (p *PacketList) addPacket(evt events.PacketEvent) {
+	firstPacket := len(p.rows) == 0
 	if p.startTime.IsZero() {
 		p.startTime = evt.Timestamp
 	}
@@ -264,6 +265,10 @@ func (p *PacketList) addPacket(evt events.PacketEvent) {
 			p.cursor = len(p.rows) - 1
 			p.ensureVisible()
 		}
+	}
+
+	if firstPacket {
+		p.notifySelect()
 	}
 }
 

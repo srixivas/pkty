@@ -87,3 +87,12 @@ git push origin v0.2.0
 ## Module path
 
 `github.com/srixivas/pkty` — all internal imports use this prefix.
+
+## GitHub personality & vibe
+
+pkty has a fun, hacker-friendly personality. When writing GitHub issues, PR descriptions, commit messages, or templates:
+- Use emojis on section headers and bullet points (🦉 for the owl mascot, 📡 network, 🔍 inspection, 🐛 bugs, ✨ features, 📦 releases)
+- Keep language energetic and direct — not corporate, not overly formal
+- The tagline is: *terminal-native packet intelligence*
+- Emphasize both modes prominently: **live capture** (requires root/cap_net_raw) and **offline pcap replay** (no root needed)
+- Capture backends: `LibpcapBackend` (live) and `PcapFileBackend` (offline replay via `-r`)

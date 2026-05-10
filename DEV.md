@@ -4,7 +4,7 @@
 
 ---
 
-## Repository Structure
+## 📁 Repository Structure
 
 ```
 pkty/
@@ -28,7 +28,7 @@ pkty/
 
 ---
 
-## Dev Setup
+## 🛠️ Dev Setup
 
 ### System dependencies
 
@@ -49,6 +49,9 @@ sudo ./pkty -i en0
 
 # or from source directly
 sudo go run ./cmd/pkty -i en0
+
+# offline replay (no root needed)
+pkty -r capture.pcap
 ```
 
 ### Tests
@@ -73,7 +76,7 @@ go vet ./...
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ### Data flow
 
@@ -197,7 +200,7 @@ Tables: `packets`, `dns_events`, `tls_events`.
 
 ---
 
-## Go Conventions in This Codebase
+## 🧑‍💻 Go Conventions in This Codebase
 
 - Widget border color: focused = `Color("226")` (bright yellow); each widget has its own unfocused color
 - `truncStr(s, n)` lives in `packetlist.go` — accessible to all widgets in the package
@@ -207,7 +210,7 @@ Tables: `packets`, `dns_events`, `tls_events`.
 
 ---
 
-## Dependencies
+## 📦 Dependencies
 
 ### Go modules
 
@@ -229,7 +232,7 @@ Tables: `packets`, `dns_events`, `tls_events`.
 
 ---
 
-## CI / Release
+## 🚢 CI / Release
 
 ### CI (`ci.yml`)
 

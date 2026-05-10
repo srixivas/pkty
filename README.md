@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="demo/logo.png" width="96" alt="pkty owl logo" />
+  <img src="demo/logo-transparent.png" width="300" alt="pkty owl logo" />
 </p>
 
 <h1 align="center">pkty</h1>
+
+<p align="center"><em>terminal-native packet intelligence — sniff, inspect, and understand your network without leaving the command line</em></p>
 
 <p align="center">
   <a href="https://github.com/srixivas/pkty/actions/workflows/ci.yml">
@@ -20,26 +22,27 @@
   <img src="demo/demo.gif" alt="pkty demo" />
 </p>
 
-A real-time terminal network dashboard for macOS and Linux. Captures live traffic via libpcap (or reads pcap files offline) and renders a multi-panel TUI with packet inspection, DNS, TLS, connections, bandwidth, and protocol analytics — all in one view.
+A real-time terminal network dashboard for macOS and Linux. Renders a multi-panel TUI with packet inspection, DNS, TLS, connections, bandwidth, and protocol analytics — all in one view.
 
-```
-sudo pkty -i en0
-```
+| Mode | Command | Root? |
+|------|---------|-------|
+| 🔴 **Live capture** | `sudo pkty -i en0` | Yes (libpcap) |
+| 📂 **Offline replay** | `pkty -r capture.pcap` | No |
 
 > See [DEV.md](DEV.md) for architecture details, dev setup, and contributing.
 
 ---
 
-## Features
+## ✨ Features
 
-- Live capture via libpcap or offline pcap/pcapng replay
-- Packet inspector — list → protocol detail tree → hex dump
-- Connections, DNS queries, TLS/SNI, bandwidth sparkline, protocol distribution
-- ASCII network diagram with per-host TX/RX bars (`n` to toggle)
-- Display filters — press `Enter` on any row in any widget to filter live
-- BPF filter bar (`/`) for kernel-level capture filtering
-- Reverse DNS resolution (PTR lookups, seeded from observed DNS traffic)
-- Save captures to pcap (`S` key) or log continuously to SQLite (`--sqlite`)
+- 📡 Live capture via libpcap or offline pcap/pcapng replay
+- 🔍 Packet inspector — list → protocol detail tree → hex dump
+- 🌐 Connections, DNS queries, TLS/SNI, bandwidth sparkline, protocol distribution
+- 🗺️ ASCII network diagram with per-host TX/RX bars (`n` to toggle)
+- 🎯 Display filters — press `Enter` on any row in any widget to filter live
+- 🔧 BPF filter bar (`/`) for kernel-level capture filtering
+- 🔎 Reverse DNS resolution (PTR lookups, seeded from observed DNS traffic)
+- 💾 Save captures to pcap (`S` key) or log continuously to SQLite (`--sqlite`)
 
 ---
 
@@ -85,7 +88,7 @@ flowchart LR
 
 ---
 
-## Installation
+## 📦 Installation
 
 ### Pre-built binary (recommended)
 
@@ -105,7 +108,7 @@ curl -L https://github.com/srixivas/pkty/releases/latest/download/pkty_linux_amd
 sudo mv pkty /usr/local/bin/
 ```
 
-### Build from source
+### 🔨 Build from source
 
 ```bash
 git clone https://github.com/srixivas/pkty
@@ -131,7 +134,35 @@ sudo setcap cap_net_raw+ep ./pkty
 
 ---
 
-## Usage
+## ⚡ Quick Start
+
+**1. Find your active interface:**
+
+```bash
+# macOS
+route get default | awk '/interface:/{print $2}'
+
+# Linux
+ip route get 1.1.1.1 | awk '{print $5; exit}'
+```
+
+> Typical values: `en0` or `en1` on macOS · `eth0`, `wlan0`, or `wlp2s0` on Linux
+
+**2. Launch:**
+
+```bash
+# Live capture (requires root or cap_net_raw)
+sudo pkty -i <interface>
+
+# Offline replay — no root needed
+pkty -r capture.pcap
+```
+
+Press `q` to quit. Check [Key Bindings](#️-key-bindings) for navigation.
+
+---
+
+## 🚀 Usage
 
 ```bash
 sudo pkty -i en0                          # live capture
@@ -144,7 +175,7 @@ pkty -version
 
 ---
 
-## Key Bindings
+## ⌨️ Key Bindings
 
 | Key | Action |
 |-----|--------|
@@ -165,7 +196,7 @@ pkty -version
 
 ---
 
-## Display Filters
+## 🎯 Display Filters
 
 Press `Enter` on any row in any side panel to instantly filter the packet list. Filters combine with AND logic. Press `D` to clear all.
 
@@ -183,7 +214,7 @@ The `/` BPF filter is separate — it filters at the kernel capture level before
 
 ---
 
-## Saving & Logging
+## 💾 Saving & Logging
 
 **pcap snapshot (`S` key):** saves everything captured so far to `~/.local/share/pkty/saves/pkty-<timestamp>.pcap` — compatible with Wireshark and tcpdump.
 
@@ -198,7 +229,7 @@ Default path: `~/.local/share/pkty/pkty.db`
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 Config file: `~/.config/pkty/config.toml`
 
@@ -219,7 +250,7 @@ See `config.example.toml` for all options. CLI flags override the config file.
 
 ---
 
-## License
+## 📄 License
 
 [GPL-2.0](LICENSE)
 
