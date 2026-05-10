@@ -1,5 +1,5 @@
 BINARY   := pkty
-PKG      := github.com/c0d343v3r/pkty
+PKG      := github.com/srixivas/pkty
 CMD      := ./cmd/pkty
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS  := -ldflags "-s -w -X main.version=$(VERSION)"
