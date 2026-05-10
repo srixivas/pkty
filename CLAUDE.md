@@ -91,8 +91,25 @@ git push origin v0.2.0
 ## GitHub personality & vibe
 
 pkty has a fun, hacker-friendly personality. When writing GitHub issues, PR descriptions, commit messages, or templates:
-- Use emojis on section headers and bullet points (🦉 for the owl mascot, 📡 network, 🔍 inspection, 🐛 bugs, ✨ features, 📦 releases)
 - Keep language energetic and direct — not corporate, not overly formal
 - The tagline is: *terminal-native packet intelligence*
 - Emphasize both modes prominently: **live capture** (requires root/cap_net_raw) and **offline pcap replay** (no root needed)
 - Capture backends: `LibpcapBackend` (live) and `PcapFileBackend` (offline replay via `-r`)
+
+## Commit message style
+
+Prefix every commit with a single emoji that matches the type — one emoji, not more:
+
+| Type | Emoji | Example |
+|------|-------|---------|
+| feat | ✨ | `✨ feat: add BPF filter bar` |
+| fix | 🐛 | `🐛 fix: narrow race in resolver pending map` |
+| perf | ⚡ | `⚡ perf: reduce goroutine churn at high pps` |
+| refactor | ♻️ | `♻️ refactor: rename boar field to owl` |
+| docs | 📚 | `📚 docs: add Quick Start section to README` |
+| test | 🧪 | `🧪 test: add display filter edge cases` |
+| chore | 🧹 | `🧹 chore: update .gitignore` |
+| build/ci | 🔧 | `🔧 ci: fix goreleaser arm64 cross-compile` |
+| release | 🚀 | `🚀 release: tag v0.1.0` |
+
+Keep the subject line short and imperative. No period at the end. Body (if needed) is plain prose — no extra emojis there.
