@@ -567,7 +567,7 @@ func (m Model) listenPackets() tea.Cmd {
 	return func() tea.Msg {
 		evt, ok := <-bus.Packets
 		if !ok {
-			return CaptureErrMsg{Err: fmt.Errorf("packet channel closed")}
+			return nil
 		}
 		return PacketMsg(evt)
 	}
