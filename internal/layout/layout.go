@@ -92,6 +92,7 @@ type Model struct {
 	focusTarget int
 	bottomFocus int
 	centreMode  int // 0 = PacketInspector, 1 = NetGraph
+	splashing   bool
 	statusStyle     lipgloss.Style
 	filterStyle     lipgloss.Style
 	displayBarStyle  lipgloss.Style
@@ -143,6 +144,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		focusTarget:    FocusCentre,
 		bottomFocus:    BottomProtoDist,
 		centreMode:     0,
+		splashing:      true,
 		statusStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")).
 			Background(lipgloss.Color("236")).
@@ -169,6 +171,7 @@ func (m Model) Init() tea.Cmd {
 		m.listenTLS(),
 		m.listenHTTP(),
 		animTickCmd(),
+		splashTimer(),
 	)
 }
 
@@ -176,7 +179,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case splashDoneMsg:
+		m.splashing = false
+
 	case tea.KeyMsg:
+		// Any key skips the splash (q/Ctrl+C still quit).
+		if m.splashing {
+			if msg.String() == "q" || msg.Type == tea.KeyCtrlC {
+				return m, tea.Quit
+			}
+			m.splashing = false
+			return m, nil
+		}
+
 		// BPF filter bar eats all input when active
 		if m.filterBar.Active() {
 			var cmd tea.Cmd
@@ -447,6 +462,10 @@ func (m *Model) routeKey(msg tea.Msg) tea.Cmd {
 func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "Initializing..."
+	}
+
+	if m.splashing {
+		return m.splashView()
 	}
 
 	if m.captureErr != nil {
