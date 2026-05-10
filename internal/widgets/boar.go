@@ -6,124 +6,128 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// boarFrames holds 4 animation frames of the ASCII boar (6 rows each, 15 chars wide).
+// owlFrames holds 4 animation frames of the ASCII owl (6 rows each, 15 chars wide).
 //
-// Stable rows (identical every frame):
-//
-//	row 1 — eyes      /(o  o)\
-//	row 2 — snout     \| (;;)  |/  (tusks)
-//	row 3 — chin      \___/
-//
-// Animated rows:
-//
-//	row 0 — ears      /\  /\  (relaxed)  vs  |\  /|  (pricked, odd frames)
-//	row 4 — legs      forward → straight → back → lifting
-//	row 5 — hooves    wide-out → straight → wide-in → straight
-var boarFrames = [4][6]string{
-	{ // Frame 0: ears relaxed, legs forward
-		"      /\\  /\\   ",
-		"     /(o  o)\\  ",
-		"   \\| (;;)  |/ ",
-		"      \\___/    ",
-		"      //  \\\\   ",
-		"     //    \\\\  ",
+// Row 0 — ear tufts:  /\_/\  (static)
+// Row 1 — eyes:       animated — open (@v@) → open (@v@) → half (-v-) → closed (.v.)
+// Row 2 — chest:      ():::()  (static)
+// Row 3 — belly:       (   )   (static)
+// Row 4 — wings:      animated — neutral /|\ → raised //|\\ → neutral /|\ → lowered \|/
+// Row 5 — talons:      v   v   (static)
+var owlFrames = [4][6]string{
+	{ // Frame 0: eyes open, wings neutral
+		"     /\\_/\\     ",
+		"    ((@v@))    ",
+		"    ():::()    ",
+		"     (   )     ",
+		"    /|   |\\    ",
+		"     v   v     ",
 	},
-	{ // Frame 1: ears pricked, legs straight
-		"      |\\  /|   ",
-		"     /(o  o)\\  ",
-		"   \\| (;;)  |/ ",
-		"      \\___/    ",
-		"      ||  ||   ",
-		"      |    |   ",
+	{ // Frame 1: eyes open (glow peak), wings raised
+		"     /\\_/\\     ",
+		"    ((@v@))    ",
+		"    ():::()    ",
+		"     (   )     ",
+		"   //|   |\\\\   ",
+		"     v   v     ",
 	},
-	{ // Frame 2: ears relaxed, legs back
-		"      /\\  /\\   ",
-		"     /(o  o)\\  ",
-		"   \\| (;;)  |/ ",
-		"      \\___/    ",
-		"      \\\\  //   ",
-		"      \\\\    // ",
+	{ // Frame 2: eyes half-blink, wings neutral
+		"     /\\_/\\     ",
+		"    ((-v-))    ",
+		"    ():::()    ",
+		"     (   )     ",
+		"    /|   |\\    ",
+		"     v   v     ",
 	},
-	{ // Frame 3: ears pricked, legs lifting
-		"      |\\  /|   ",
-		"     /(o  o)\\  ",
-		"   \\| (;;)  |/ ",
-		"      \\___/    ",
-		"      /|  |\\   ",
-		"      |    |   ",
+	{ // Frame 3: eyes closed, wings lowered
+		"     /\\_/\\     ",
+		"    ((.v.))    ",
+		"    ():::()    ",
+		"     (   )     ",
+		"    \\|   |/    ",
+		"     v   v     ",
 	},
 }
 
-// BoarWidget renders an animated ASCII boar with a capture-state status line.
+// eyeColors maps each frame's eye row to a lipgloss color.
+// Frames 0+1 glow bright yellow; frame 2 dims; frame 3 closes to dark amber.
+var eyeColors = [4]string{"226", "226", "178", "136"}
+
+// OwlWidget renders an animated ASCII owl with a capture-state status line.
 // It does not implement the full Widget interface — layout uses it directly.
-type BoarWidget struct {
+type OwlWidget struct {
 	frame      int
 	capturing  bool
 	hasBackend bool
 	width      int
 }
 
-// NewBoarWidget creates a BoarWidget with default state (no backend, not capturing).
-func NewBoarWidget() *BoarWidget {
-	return &BoarWidget{}
+// NewOwlWidget creates an OwlWidget with default state (no backend, not capturing).
+func NewOwlWidget() *OwlWidget {
+	return &OwlWidget{}
 }
 
-// Height returns the fixed height of the boar widget (6 art rows + 1 status row).
-func (b *BoarWidget) Height() int { return 7 }
+// Height returns the fixed height of the owl widget (6 art rows + 1 status row).
+func (o *OwlWidget) Height() int { return 7 }
 
 // SetWidth sets the render width used for centring the art.
-func (b *BoarWidget) SetWidth(w int) { b.width = w }
+func (o *OwlWidget) SetWidth(w int) { o.width = w }
 
 // SetCapturing updates whether capture is active (controls animation and status text).
-func (b *BoarWidget) SetCapturing(c bool) { b.capturing = c }
+func (o *OwlWidget) SetCapturing(c bool) { o.capturing = c }
 
 // SetHasBackend records whether a capture backend is wired up.
-func (b *BoarWidget) SetHasBackend(h bool) { b.hasBackend = h }
+func (o *OwlWidget) SetHasBackend(h bool) { o.hasBackend = h }
 
 // Advance steps to the next animation frame (called on each tick when capturing).
-func (b *BoarWidget) Advance() { b.frame = (b.frame + 1) % 4 }
+func (o *OwlWidget) Advance() { o.frame = (o.frame + 1) % 4 }
 
-// View renders the boar widget as a 7-row string at the configured width.
-func (b *BoarWidget) View() string {
-	frame := boarFrames[b.frame]
+// View renders the owl widget as a 7-row string at the configured width.
+func (o *OwlWidget) View() string {
+	frame := owlFrames[o.frame]
 
-	// Find the max art width so we can centre the block.
 	artW := 0
 	for _, row := range frame {
 		if len(row) > artW {
 			artW = len(row)
 		}
 	}
-
 	pad := 0
-	if b.width > artW {
-		pad = (b.width - artW) / 2
+	if o.width > artW {
+		pad = (o.width - artW) / 2
 	}
 	prefix := strings.Repeat(" ", pad)
 
-	artStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	bodyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	eyeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(eyeColors[o.frame])).
+		Bold(o.frame <= 1)
+
 	var lines []string
-	for _, row := range frame {
-		lines = append(lines, artStyle.Render(prefix+row))
+	for i, row := range frame {
+		style := bodyStyle
+		if i == 1 {
+			style = eyeStyle
+		}
+		lines = append(lines, style.Render(prefix+row))
 	}
 
-	// Status line
 	var statusLine string
 	switch {
-	case !b.hasBackend:
+	case !o.hasBackend:
 		statusLine = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
-			Render(centreText("○ NO SOURCE", b.width))
-	case b.capturing:
+			Render(centreText("○ NO SOURCE", o.width))
+	case o.capturing:
 		statusLine = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("46")).
 			Bold(true).
-			Render(centreText("● CAPTURING", b.width))
+			Render(centreText("● CAPTURING", o.width))
 	default:
 		statusLine = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("226")).
 			Bold(true).
-			Render(centreText("■ PAUSED", b.width))
+			Render(centreText("■ PAUSED", o.width))
 	}
 	lines = append(lines, statusLine)
 

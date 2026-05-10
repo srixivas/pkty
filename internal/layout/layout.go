@@ -58,7 +58,7 @@ type Model struct {
 	height int
 
 	// Widgets
-	boar        *widgets.BoarWidget
+	boar        *widgets.OwlWidget
 	inspector   *widgets.PacketInspector
 	netGraph    *widgets.NetGraphWidget
 	connections *widgets.ConnectionsWidget
@@ -124,7 +124,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		bus:            bus,
 		saveDir:        session.DefaultSaveDir(),
 		resolver:       resolve.New(),
-		boar:           widgets.NewBoarWidget(),
+		boar:           widgets.NewOwlWidget(),
 		inspector:      insp,
 		netGraph:       func() *widgets.NetGraphWidget {
 			ng := widgets.NewNetGraphWidget()
