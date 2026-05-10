@@ -1,5 +1,5 @@
-# netdash configuration
-# Place this file at ~/.config/netdash/config.toml
+# pkty configuration
+# Place this file at ~/.config/pkty/config.toml
 
 [capture]
 # Network interface to capture on (leave empty to auto-detect)

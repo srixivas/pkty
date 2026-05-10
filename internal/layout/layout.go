@@ -17,7 +17,6 @@ import (
 )
 
 // AppName is the canonical display name of the application.
-// Change this once here when the name is finalised.
 const AppName = "pkty"
 
 type animTickMsg time.Time
@@ -39,10 +38,10 @@ type CaptureErrMsg struct{ Err error }
 type SaveStatusMsg struct{ Text string }
 
 const (
-	FocusCentre = 0
-	FocusLeft   = 1
-	FocusRight  = 2
-	FocusBottom = 3
+	FocusCentre = iota
+	FocusLeft
+	FocusRight
+	FocusBottom
 )
 
 // bottomFocus indices for the three bottom widgets.
