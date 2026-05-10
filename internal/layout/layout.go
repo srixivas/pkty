@@ -333,7 +333,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		w, cmd := m.inspector.Update(evt)
-		m.inspector = w.(*widgets.PacketInspector)
+		if pi, ok := w.(*widgets.PacketInspector); ok {
+			m.inspector = pi
+		}
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -392,51 +394,51 @@ func (m *Model) routeKey(msg tea.Msg) tea.Cmd {
 	switch m.focusTarget {
 	case FocusCentre:
 		if m.centreMode == 1 {
-			var cmd tea.Cmd
-			var w widgets.Widget
-			w, cmd = m.netGraph.Update(msg)
-			m.netGraph = w.(*widgets.NetGraphWidget)
+			w, cmd := m.netGraph.Update(msg)
+			if ng, ok := w.(*widgets.NetGraphWidget); ok {
+				m.netGraph = ng
+			}
 			return cmd
 		}
-		var cmd tea.Cmd
-		var w widgets.Widget
-		w, cmd = m.inspector.Update(msg)
-		m.inspector = w.(*widgets.PacketInspector)
+		w, cmd := m.inspector.Update(msg)
+		if pi, ok := w.(*widgets.PacketInspector); ok {
+			m.inspector = pi
+		}
 		return cmd
 
 	case FocusLeft:
-		var cmd tea.Cmd
-		var w widgets.Widget
-		w, cmd = m.connections.Update(msg)
-		m.connections = w.(*widgets.ConnectionsWidget)
+		w, cmd := m.connections.Update(msg)
+		if cw, ok := w.(*widgets.ConnectionsWidget); ok {
+			m.connections = cw
+		}
 		return cmd
 
 	case FocusRight:
-		var cmd tea.Cmd
-		var w widgets.Widget
-		w, cmd = m.dns.Update(msg)
-		m.dns = w.(*widgets.DNSWidget)
+		w, cmd := m.dns.Update(msg)
+		if dw, ok := w.(*widgets.DNSWidget); ok {
+			m.dns = dw
+		}
 		return cmd
 
 	case FocusBottom:
 		switch m.bottomFocus {
 		case BottomProtoDist:
-			var cmd tea.Cmd
-			var w widgets.Widget
-			w, cmd = m.protoDist.Update(msg)
-			m.protoDist = w.(*widgets.ProtocolDistWidget)
+			w, cmd := m.protoDist.Update(msg)
+			if pd, ok := w.(*widgets.ProtocolDistWidget); ok {
+				m.protoDist = pd
+			}
 			return cmd
 		case BottomRemoteHosts:
-			var cmd tea.Cmd
-			var w widgets.Widget
-			w, cmd = m.remoteHosts.Update(msg)
-			m.remoteHosts = w.(*widgets.RemoteHostsWidget)
+			w, cmd := m.remoteHosts.Update(msg)
+			if rh, ok := w.(*widgets.RemoteHostsWidget); ok {
+				m.remoteHosts = rh
+			}
 			return cmd
 		case BottomTLS:
-			var cmd tea.Cmd
-			var w widgets.Widget
-			w, cmd = m.tlsInspect.Update(msg)
-			m.tlsInspect = w.(*widgets.TLSInspectorWidget)
+			w, cmd := m.tlsInspect.Update(msg)
+			if tl, ok := w.(*widgets.TLSInspectorWidget); ok {
+				m.tlsInspect = tl
+			}
 			return cmd
 		}
 	}
