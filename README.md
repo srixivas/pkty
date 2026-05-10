@@ -222,3 +222,9 @@ See `config.example.toml` for all options. CLI flags override the config file.
 ## License
 
 [GPL-2.0](LICENSE)
+
+---
+
+<p align="center">
+  Built with <a href="https://claude.ai">Claude</a> &nbsp;·&nbsp; Mascot logo by <a href="https://gemini.google.com">Gemini</a>
+</p>
