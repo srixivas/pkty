@@ -57,7 +57,7 @@ type Model struct {
 	height int
 
 	// Widgets
-	boar        *widgets.OwlWidget
+	owl         *widgets.OwlWidget
 	inspector   *widgets.PacketInspector
 	netGraph    *widgets.NetGraphWidget
 	connections *widgets.ConnectionsWidget
@@ -110,8 +110,8 @@ func (m *Model) SetSQLiteStore(s *store.SQLiteStore) { m.sqliteStore = s }
 func (m *Model) SetCapturing(active bool) {
 	m.capturing = active
 	m.hasBackend = true
-	m.boar.SetCapturing(active)
-	m.boar.SetHasBackend(true)
+	m.owl.SetCapturing(active)
+	m.owl.SetHasBackend(true)
 }
 
 func New(cfg *config.Config, bus *events.EventBus) Model {
@@ -124,7 +124,7 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 		bus:            bus,
 		saveDir:        session.DefaultSaveDir(),
 		resolver:       resolve.New(),
-		boar:           widgets.NewOwlWidget(),
+		owl:            widgets.NewOwlWidget(),
 		inspector:      insp,
 		netGraph:       func() *widgets.NetGraphWidget {
 			ng := widgets.NewNetGraphWidget()
@@ -238,7 +238,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			if m.hasBackend {
 				m.capturing = !m.capturing
-				m.boar.SetCapturing(m.capturing)
+				m.owl.SetCapturing(m.capturing)
 			}
 			return m, tea.Batch(cmds...)
 
@@ -289,7 +289,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case animTickMsg:
 		if m.capturing {
-			m.boar.Advance()
+			m.owl.Advance()
 		}
 		cmds = append(cmds, animTickCmd())
 
@@ -491,12 +491,12 @@ func (m Model) View() string {
 		centreW = 20
 	}
 
-	// Left panel: boar (top) + connections (remainder)
-	boarH := m.boar.Height()
-	m.boar.SetWidth(leftW)
-	m.connections.SetSize(leftW, mainH-boarH)
+	// Left panel: owl (top) + connections (remainder)
+	owlH := m.owl.Height()
+	m.owl.SetWidth(leftW)
+	m.connections.SetSize(leftW, mainH-owlH)
 	leftView := lipgloss.JoinVertical(lipgloss.Left,
-		m.boar.View(),
+		m.owl.View(),
 		m.connections.View(),
 	)
 

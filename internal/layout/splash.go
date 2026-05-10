@@ -16,7 +16,7 @@ func splashTimer() tea.Cmd {
 }
 
 func (m Model) splashView() string {
-	owl := m.boar.View()
+	owl := m.owl.View()
 	return lipgloss.NewStyle().
 		Background(lipgloss.Color("232")).
 		Width(m.width).
