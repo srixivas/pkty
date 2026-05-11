@@ -10,6 +10,7 @@ Output demo/demo.gif
 
 Set Shell "bash"
 Set FontSize 13
+Env "PS1" "$ "
 Set FontFamily "JetBrains Mono"
 Set Width 1800
 Set Height 900
