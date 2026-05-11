@@ -112,6 +112,17 @@ curl -L https://github.com/srixivas/pkty/releases/latest/download/pkty_linux_amd
 sudo mv pkty /usr/local/bin/
 ```
 
+Then launch:
+
+```bash
+# 🔴 Live capture (requires root or cap_net_raw)
+sudo pkty -i en0          # macOS
+sudo pkty -i eth0         # Linux
+
+# 📂 Offline replay — no root needed
+pkty -r capture.pcap
+```
+
 ### 🔨 Build from source
 
 ```bash
