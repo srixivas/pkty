@@ -66,6 +66,10 @@ flowchart LR
 
 ## Layout
 
+<p align="center">
+  <img src="demo/layout.png" width="900" alt="pkty layout screenshot" />
+</p>
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Display: ◆ all traffic                                       [filter bar]    │

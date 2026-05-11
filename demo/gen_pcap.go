@@ -23,33 +23,22 @@ var (
 	routerMAC = net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
 	localIP   = net.IP{192, 168, 1, 42}
 
+	// all hosts — used for DNS responses and TLS/HTTP flows
 	hosts = []struct {
 		name string
 		ip   net.IP
+		http bool // plaintext HTTP instead of TLS
 	}{
-		{"github.com", net.IP{140, 82, 121, 4}},
-		{"api.github.com", net.IP{140, 82, 121, 6}},
-		{"google.com", net.IP{142, 250, 80, 46}},
-		{"googleapis.com", net.IP{172, 217, 14, 74}},
-		{"cloudflare.com", net.IP{104, 16, 132, 229}},
-		{"1.1.1.1", net.IP{1, 1, 1, 1}},
-		{"fastly.net", net.IP{151, 101, 1, 57}},
-		{"slack.com", net.IP{54, 192, 4, 141}},
-	}
-
-	// HTTP (plaintext) hosts — mirrors `curl http://neverssl.com` traffic
-	httpHosts = []struct {
-		name string
-		ip   net.IP
-	}{
-		{"neverssl.com", net.IP{13, 35, 92, 100}},
-		{"example.com", net.IP{93, 184, 216, 34}},
-	}
-
-	dnsNames = []string{
-		"github.com", "api.github.com", "google.com",
-		"googleapis.com", "cloudflare.com", "slack.com", "fastly.net",
-		"neverssl.com", "example.com",
+		{"github.com", net.IP{140, 82, 121, 4}, false},
+		{"api.github.com", net.IP{140, 82, 121, 6}, false},
+		{"google.com", net.IP{142, 250, 80, 46}, false},
+		{"googleapis.com", net.IP{172, 217, 14, 74}, false},
+		{"cloudflare.com", net.IP{104, 16, 132, 229}, false},
+		{"1.1.1.1", net.IP{1, 1, 1, 1}, false},
+		{"fastly.net", net.IP{151, 101, 1, 57}, false},
+		{"slack.com", net.IP{54, 192, 4, 141}, false},
+		{"neverssl.com", net.IP{13, 35, 92, 100}, true},
+		{"example.com", net.IP{93, 184, 216, 34}, true},
 	}
 
 	ciphers = []uint16{0xc02c, 0xc02b, 0x1301, 0x1302, 0x1303}
@@ -82,8 +71,8 @@ func main() {
 	}
 
 	// DNS query + response pairs
-	for i, name := range dnsNames {
-		host := hosts[i]
+	for i, host := range hosts {
+		name := host.name
 		qTs := ts.Add(time.Duration(i*800) * time.Millisecond)
 		txID := uint16(rng.Intn(65535))
 
@@ -139,76 +128,65 @@ func main() {
 		ts = qTs.Add(20 * time.Millisecond)
 	}
 
-	// TLS ClientHello packets (simulated as TCP payload)
+	// TCP flows — TLS for HTTPS hosts, plaintext HTTP for http:true hosts
 	for i, host := range hosts {
 		flowTS := ts.Add(time.Duration(i*600) * time.Millisecond)
 		srcPort := uint16(50000 + i*7)
 
-		// TCP SYN
-		writePacket(flowTS,
-			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
-			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
-			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 443, SYN: true, Seq: rng.Uint32()},
-			gopacket.Payload{},
-		)
-
-		// TLS ClientHello — hand-crafted bytes
-		sni := []byte(host.name)
-		if len(host.name) == 0 || host.name[0] >= '0' && host.name[0] <= '9' {
-			// numeric IP — skip SNI
-			continue
-		}
-		hello := buildClientHello(sni, ciphers)
-		writePacket(flowTS.Add(5*time.Millisecond),
-			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
-			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
-			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 443, ACK: true, PSH: true, Seq: rng.Uint32()},
-			gopacket.Payload(hello),
-		)
-
-		// HTTPS response data (ACK + data)
-		payload := make([]byte, 256+rng.Intn(1024))
-		rng.Read(payload)
-		payload[0] = 0x17 // TLS application_data record type
-		payload[1] = 0x03
-		payload[2] = 0x03
-		for j := 0; j < 3; j++ {
-			writePacket(flowTS.Add(time.Duration(10+j*30)*time.Millisecond),
+		if host.http {
+			// HTTP plaintext flow
+			writePacket(flowTS,
+				&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+				&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+				&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, SYN: true, Seq: rng.Uint32()},
+				gopacket.Payload{},
+			)
+			req := []byte("GET / HTTP/1.1\r\nHost: " + host.name + "\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n")
+			writePacket(flowTS.Add(5*time.Millisecond),
+				&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+				&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+				&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, ACK: true, PSH: true, Seq: rng.Uint32()},
+				gopacket.Payload(req),
+			)
+			resp := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 42\r\n\r\n<html><body>Hello from " + host.name + "</body></html>")
+			writePacket(flowTS.Add(30*time.Millisecond),
 				&layers.Ethernet{SrcMAC: routerMAC, DstMAC: localMAC, EthernetType: layers.EthernetTypeIPv4},
 				&layers.IPv4{SrcIP: host.ip, DstIP: localIP, Protocol: layers.IPProtocolTCP, TTL: 52},
-				&layers.TCP{SrcPort: 443, DstPort: layers.TCPPort(srcPort), ACK: true, PSH: true, Seq: rng.Uint32()},
-				gopacket.Payload(payload),
+				&layers.TCP{SrcPort: 80, DstPort: layers.TCPPort(srcPort), ACK: true, PSH: true, Seq: rng.Uint32()},
+				gopacket.Payload(resp),
 			)
+		} else {
+			// TLS/HTTPS flow
+			writePacket(flowTS,
+				&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+				&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+				&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 443, SYN: true, Seq: rng.Uint32()},
+				gopacket.Payload{},
+			)
+			if len(host.name) == 0 || host.name[0] >= '0' && host.name[0] <= '9' {
+				ts = flowTS.Add(100 * time.Millisecond)
+				continue
+			}
+			hello := buildClientHello([]byte(host.name), ciphers)
+			writePacket(flowTS.Add(5*time.Millisecond),
+				&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+				&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+				&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 443, ACK: true, PSH: true, Seq: rng.Uint32()},
+				gopacket.Payload(hello),
+			)
+			payload := make([]byte, 256+rng.Intn(1024))
+			rng.Read(payload)
+			payload[0] = 0x17; payload[1] = 0x03; payload[2] = 0x03
+			for j := 0; j < 3; j++ {
+				writePacket(flowTS.Add(time.Duration(10+j*30)*time.Millisecond),
+					&layers.Ethernet{SrcMAC: routerMAC, DstMAC: localMAC, EthernetType: layers.EthernetTypeIPv4},
+					&layers.IPv4{SrcIP: host.ip, DstIP: localIP, Protocol: layers.IPProtocolTCP, TTL: 52},
+					&layers.TCP{SrcPort: 443, DstPort: layers.TCPPort(srcPort), ACK: true, PSH: true, Seq: rng.Uint32()},
+					gopacket.Payload(payload),
+				)
+			}
 		}
 		ts = flowTS.Add(100 * time.Millisecond)
-	}
-
-	// HTTP (plaintext) flows — GET / responses, mirrors curl http://neverssl.com
-	for i, host := range httpHosts {
-		flowTS := ts.Add(time.Duration(i*400) * time.Millisecond)
-		srcPort := uint16(55000 + i*3)
-
-		writePacket(flowTS,
-			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
-			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
-			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, SYN: true, Seq: rng.Uint32()},
-			gopacket.Payload{},
-		)
-		req := []byte("GET / HTTP/1.1\r\nHost: " + host.name + "\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n")
-		writePacket(flowTS.Add(5*time.Millisecond),
-			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
-			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
-			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, ACK: true, PSH: true, Seq: rng.Uint32()},
-			gopacket.Payload(req),
-		)
-		resp := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 42\r\n\r\n<html><body>Hello from " + host.name + "</body></html>")
-		writePacket(flowTS.Add(30*time.Millisecond),
-			&layers.Ethernet{SrcMAC: routerMAC, DstMAC: localMAC, EthernetType: layers.EthernetTypeIPv4},
-			&layers.IPv4{SrcIP: host.ip, DstIP: localIP, Protocol: layers.IPProtocolTCP, TTL: 52},
-			&layers.TCP{SrcPort: 80, DstPort: layers.TCPPort(srcPort), ACK: true, PSH: true, Seq: rng.Uint32()},
-			gopacket.Payload(resp),
-		)
-		ts = flowTS.Add(50 * time.Millisecond)
 	}
 
 	// Burst of HTTPS data packets to build up bandwidth graph
