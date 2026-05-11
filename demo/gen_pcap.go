@@ -37,9 +37,19 @@ var (
 		{"slack.com", net.IP{54, 192, 4, 141}},
 	}
 
+	// HTTP (plaintext) hosts — mirrors `curl http://neverssl.com` traffic
+	httpHosts = []struct {
+		name string
+		ip   net.IP
+	}{
+		{"neverssl.com", net.IP{13, 35, 92, 100}},
+		{"example.com", net.IP{93, 184, 216, 34}},
+	}
+
 	dnsNames = []string{
 		"github.com", "api.github.com", "google.com",
 		"googleapis.com", "cloudflare.com", "slack.com", "fastly.net",
+		"neverssl.com", "example.com",
 	}
 
 	ciphers = []uint16{0xc02c, 0xc02b, 0x1301, 0x1302, 0x1303}
@@ -171,6 +181,34 @@ func main() {
 			)
 		}
 		ts = flowTS.Add(100 * time.Millisecond)
+	}
+
+	// HTTP (plaintext) flows — GET / responses, mirrors curl http://neverssl.com
+	for i, host := range httpHosts {
+		flowTS := ts.Add(time.Duration(i*400) * time.Millisecond)
+		srcPort := uint16(55000 + i*3)
+
+		writePacket(flowTS,
+			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, SYN: true, Seq: rng.Uint32()},
+			gopacket.Payload{},
+		)
+		req := []byte("GET / HTTP/1.1\r\nHost: " + host.name + "\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n")
+		writePacket(flowTS.Add(5*time.Millisecond),
+			&layers.Ethernet{SrcMAC: localMAC, DstMAC: routerMAC, EthernetType: layers.EthernetTypeIPv4},
+			&layers.IPv4{SrcIP: localIP, DstIP: host.ip, Protocol: layers.IPProtocolTCP, TTL: 64},
+			&layers.TCP{SrcPort: layers.TCPPort(srcPort), DstPort: 80, ACK: true, PSH: true, Seq: rng.Uint32()},
+			gopacket.Payload(req),
+		)
+		resp := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 42\r\n\r\n<html><body>Hello from " + host.name + "</body></html>")
+		writePacket(flowTS.Add(30*time.Millisecond),
+			&layers.Ethernet{SrcMAC: routerMAC, DstMAC: localMAC, EthernetType: layers.EthernetTypeIPv4},
+			&layers.IPv4{SrcIP: host.ip, DstIP: localIP, Protocol: layers.IPProtocolTCP, TTL: 52},
+			&layers.TCP{SrcPort: 80, DstPort: layers.TCPPort(srcPort), ACK: true, PSH: true, Seq: rng.Uint32()},
+			gopacket.Payload(resp),
+		)
+		ts = flowTS.Add(50 * time.Millisecond)
 	}
 
 	// Burst of HTTPS data packets to build up bandwidth graph
