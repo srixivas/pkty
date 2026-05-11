@@ -90,8 +90,9 @@ func Default() *Config {
 			Name: "default",
 		},
 		Performance: PerformanceConfig{
-			UIRefreshMs:  100,
-			MaxPacketAge: 240,
+			UIRefreshMs:   100,
+			MaxPacketAge:  240,
+			HideEncrypted: true,
 		},
 	}
 }

@@ -406,10 +406,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.remoteHosts.Update(evt)
 			m.netGraph.Update(evt)
 
-			// Packet inspector only receives cleartext packets by default.
-			// Encrypted ones appear in all stats but not the scrolling list,
-			// reducing noise on TLS/SSH-heavy sessions. An active display
-			// filter overrides this so explicit filtering always works.
+			// Encrypted packets (TLS/SSH/QUIC/DTLS) feed all stats widgets
+			// but skip the packet inspector list by default — they have no
+			// readable payload so they only add noise. An active display filter
+			// (e.g. Proto=TLS from the proto-dist panel) overrides this so the
+			// user can always drill into them on demand. Pass --show-encrypted
+			// to disable this behaviour and show everything.
 			filterActive := m.displayFilters.Active()
 			if !m.hideEncrypted || !isEncryptedProtocol(evt.Protocol) || filterActive {
 				w, cmd := m.inspector.Update(evt)

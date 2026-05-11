@@ -26,7 +26,7 @@ var (
 	sqliteEnable  = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/pkty/pkty.db)")
 	sqliteDB      = flag.String("sqlite-db", "", "SQLite database path (enables SQLite logging, overrides default path)")
 	uiRefresh     = flag.Int("ui-refresh", 0, "UI redraw interval in ms (default: 100); increase on high-traffic servers")
-	hideEncrypted = flag.Bool("hide-encrypted", false, "hide TLS/SSH/QUIC packets from the inspector list (they still feed all stats)")
+	showEncrypted = flag.Bool("show-encrypted", false, "show TLS/SSH/QUIC packets in the inspector list (default: stats only)")
 )
 
 func main() {
@@ -65,8 +65,8 @@ func main() {
 	if *uiRefresh > 0 {
 		cfg.Performance.UIRefreshMs = *uiRefresh
 	}
-	if *hideEncrypted {
-		cfg.Performance.HideEncrypted = true
+	if *showEncrypted {
+		cfg.Performance.HideEncrypted = false
 	}
 
 	bus := events.NewEventBus(4096)
