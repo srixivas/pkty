@@ -19,12 +19,36 @@ import (
 // AppName is the canonical display name of the application.
 const AppName = "pkty"
 
+// Performance tuning constants — edit here to adjust defaults without config.
+const (
+	DefaultUIRefreshMs  = 100 // ms between UI redraws when no --ui-refresh flag
+	DefaultMaxPacketAge = 240 // seconds: rolling window for the packet list (4 min)
+	DefaultMaxPackets   = 50000 // hard cap; secondary backstop after age eviction
+)
+
 type animTickMsg time.Time
+type uiRefreshMsg time.Time
 
 func animTickCmd() tea.Cmd {
 	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
 		return animTickMsg(t)
 	})
+}
+
+func uiRefreshCmd(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return uiRefreshMsg(t)
+	})
+}
+
+// isEncryptedProtocol returns true for protocols whose payloads are opaque
+// and therefore add noise to the packet inspector without actionable content.
+func isEncryptedProtocol(proto string) bool {
+	switch proto {
+	case "TLS", "SSH", "DTLS", "QUIC":
+		return true
+	}
+	return false
 }
 
 // Msg types that bridge EventBus channels into bubbletea.
@@ -88,6 +112,11 @@ type Model struct {
 	hasBackend bool
 
 	packetCount uint64
+
+	// Performance / rendering
+	pendingPackets []events.PacketEvent // buffered between UI refresh ticks
+	uiRefreshMs    time.Duration
+	hideEncrypted  bool
 	captureErr  error
 	focusTarget int
 	bottomFocus int
@@ -119,11 +148,24 @@ func New(cfg *config.Config, bus *events.EventBus) Model {
 	insp := widgets.NewPacketInspector()
 	insp.List().SetDisplayFilter(ds)
 
+	maxAge := cfg.Performance.MaxPacketAge
+	if maxAge <= 0 {
+		maxAge = DefaultMaxPacketAge
+	}
+	insp.List().SetMaxAge(time.Duration(maxAge) * time.Second)
+
+	refreshMs := cfg.Performance.UIRefreshMs
+	if refreshMs <= 0 {
+		refreshMs = DefaultUIRefreshMs
+	}
+
 	m := Model{
-		cfg:            cfg,
-		bus:            bus,
-		saveDir:        session.DefaultSaveDir(),
-		resolver:       resolve.New(),
+		cfg:           cfg,
+		bus:           bus,
+		saveDir:       session.DefaultSaveDir(),
+		resolver:      resolve.New(),
+		uiRefreshMs:   time.Duration(refreshMs) * time.Millisecond,
+		hideEncrypted: cfg.Performance.HideEncrypted,
 		owl:            widgets.NewOwlWidget(),
 		inspector:      insp,
 		netGraph:       func() *widgets.NetGraphWidget {
@@ -172,6 +214,7 @@ func (m Model) Init() tea.Cmd {
 		m.listenHTTP(),
 		animTickCmd(),
 		splashTimer(),
+		uiRefreshCmd(m.uiRefreshMs),
 	)
 }
 
@@ -325,16 +368,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.listenPackets()) // always drain to prevent channel blocking
 
 		if !m.capturing {
-			break // discard packet; widgets stay frozen
+			break
 		}
 
 		m.packetCount++
 
+		// Side effects that must happen immediately (not deferred to UI tick).
 		if m.sqliteStore != nil {
 			m.sqliteStore.WritePacket(evt)
 		}
-
-		// Fire reverse DNS lookups for IPs we haven't resolved yet.
 		if evt.SrcIP != nil {
 			if cmd := m.resolver.Resolve(evt.SrcIP.String()); cmd != nil {
 				cmds = append(cmds, cmd)
@@ -346,19 +388,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		w, cmd := m.inspector.Update(evt)
-		if pi, ok := w.(*widgets.PacketInspector); ok {
-			m.inspector = pi
-		}
-		if cmd != nil {
-			cmds = append(cmds, cmd)
+		// Buffer for the next UI refresh tick instead of updating widgets now.
+		m.pendingPackets = append(m.pendingPackets, evt)
+
+	case uiRefreshMsg:
+		cmds = append(cmds, uiRefreshCmd(m.uiRefreshMs))
+
+		if !m.capturing || len(m.pendingPackets) == 0 {
+			break
 		}
 
-		m.connections.Update(evt)
-		m.bandwidth.Update(evt)
-		m.protoDist.Update(evt)
-		m.remoteHosts.Update(evt)
-		m.netGraph.Update(evt)
+		for _, evt := range m.pendingPackets {
+			// Stats widgets always receive every packet.
+			m.connections.Update(evt)
+			m.bandwidth.Update(evt)
+			m.protoDist.Update(evt)
+			m.remoteHosts.Update(evt)
+			m.netGraph.Update(evt)
+
+			// Packet inspector only receives cleartext packets by default.
+			// Encrypted ones appear in all stats but not the scrolling list,
+			// reducing noise on TLS/SSH-heavy sessions. An active display
+			// filter overrides this so explicit filtering always works.
+			filterActive := m.displayFilters.Active()
+			if !m.hideEncrypted || !isEncryptedProtocol(evt.Protocol) || filterActive {
+				w, cmd := m.inspector.Update(evt)
+				if pi, ok := w.(*widgets.PacketInspector); ok {
+					m.inspector = pi
+				}
+				if cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+			}
+		}
+		m.pendingPackets = m.pendingPackets[:0]
 
 	case DNSMsg:
 		evt := events.DNSEvent(msg)

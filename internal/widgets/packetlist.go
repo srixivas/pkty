@@ -33,6 +33,7 @@ type PacketList struct {
 	height       int
 	focused      bool
 	maxRows      int
+	maxAge       time.Duration // rolling window; 0 = disabled
 	startTime    time.Time
 
 	OnSelect func(PacketRow)
@@ -77,6 +78,7 @@ func (p *PacketList) Init() tea.Cmd     { return nil }
 func (p *PacketList) SetFocused(f bool) { p.focused = f }
 func (p *PacketList) Focused() bool     { return p.focused }
 func (p *PacketList) SetSize(w, h int)  { p.width = w; p.height = h }
+func (p *PacketList) SetMaxAge(d time.Duration) { p.maxAge = d }
 
 // SetDisplayFilter wires a DisplayFilterSet to this list and rebuilds the view.
 func (p *PacketList) SetDisplayFilter(ds *DisplayFilterSet) {
@@ -195,6 +197,31 @@ func (p *PacketList) Update(msg tea.Msg) (Widget, tea.Cmd) {
 	return p, nil
 }
 
+// trimOldRows evicts rows older than maxAge and adjusts cursor/offset.
+func (p *PacketList) trimOldRows() {
+	if p.maxAge <= 0 || len(p.rows) == 0 {
+		return
+	}
+	cutoff := time.Now().Add(-p.maxAge)
+	// Find first row that is within the window (rows are chronological).
+	trim := 0
+	for trim < len(p.rows) && p.rows[trim].Timestamp.Before(cutoff) {
+		trim++
+	}
+	if trim == 0 {
+		return
+	}
+	p.rows = p.rows[trim:]
+	p.cursor -= trim
+	if p.cursor < 0 {
+		p.cursor = 0
+	}
+	p.offset -= trim
+	if p.offset < 0 {
+		p.offset = 0
+	}
+}
+
 func (p *PacketList) addPacket(evt events.PacketEvent) {
 	firstPacket := len(p.rows) == 0
 	if p.startTime.IsZero() {
@@ -222,6 +249,7 @@ func (p *PacketList) addPacket(evt events.PacketEvent) {
 	}
 
 	p.rows = append(p.rows, row)
+	p.trimOldRows()
 
 	if len(p.rows) > p.maxRows {
 		trim := len(p.rows) - p.maxRows

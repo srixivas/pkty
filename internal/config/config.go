@@ -10,10 +10,27 @@ import (
 
 // Config holds all pkty configuration.
 type Config struct {
-	Capture  CaptureConfig  `toml:"capture"`
-	Layout   LayoutConfig   `toml:"layout"`
-	Widgets  WidgetsConfig  `toml:"widgets"`
-	Theme    ThemeConfig    `toml:"theme"`
+	Capture     CaptureConfig     `toml:"capture"`
+	Layout      LayoutConfig      `toml:"layout"`
+	Widgets     WidgetsConfig     `toml:"widgets"`
+	Theme       ThemeConfig       `toml:"theme"`
+	Performance PerformanceConfig `toml:"performance"`
+}
+
+// PerformanceConfig controls rendering and memory behaviour.
+type PerformanceConfig struct {
+	// UIRefreshMs is how often (in ms) the UI redraws. Packets are buffered
+	// between ticks so high-traffic sessions don't flicker. Range: 50–500.
+	UIRefreshMs int `toml:"ui_refresh_ms"`
+
+	// MaxPacketAge is the rolling window (in seconds) the packet list retains.
+	// Packets older than this are evicted. 0 disables time-based eviction.
+	MaxPacketAge int `toml:"max_packet_age_s"`
+
+	// HideEncrypted excludes TLS/SSH/QUIC/DTLS packets from the packet
+	// inspector list by default. They still feed all stats widgets.
+	// Useful on high-traffic servers where encrypted traffic dominates.
+	HideEncrypted bool `toml:"hide_encrypted"`
 }
 
 // CaptureConfig controls the capture backend.
@@ -71,6 +88,10 @@ func Default() *Config {
 		},
 		Theme: ThemeConfig{
 			Name: "default",
+		},
+		Performance: PerformanceConfig{
+			UIRefreshMs:  100,
+			MaxPacketAge: 240,
 		},
 	}
 }

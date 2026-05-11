@@ -17,14 +17,16 @@ import (
 )
 
 var (
-	version      = "dev"
-	configPath   = flag.String("config", "", "path to config file (default: ~/.config/pkty/config.toml)")
-	iface        = flag.String("i", "", "network interface to capture on")
-	pcapFile     = flag.String("r", "", "read from pcap file instead of live capture")
-	bpfFilter    = flag.String("f", "", "BPF filter expression")
-	showVer      = flag.Bool("version", false, "print version and exit")
-	sqliteEnable = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/pkty/pkty.db)")
-	sqliteDB     = flag.String("sqlite-db", "", "SQLite database path (enables SQLite logging, overrides default path)")
+	version       = "dev"
+	configPath    = flag.String("config", "", "path to config file (default: ~/.config/pkty/config.toml)")
+	iface         = flag.String("i", "", "network interface to capture on")
+	pcapFile      = flag.String("r", "", "read from pcap file instead of live capture")
+	bpfFilter     = flag.String("f", "", "BPF filter expression")
+	showVer       = flag.Bool("version", false, "print version and exit")
+	sqliteEnable  = flag.Bool("sqlite", false, "enable SQLite packet logging to default path (~/.local/share/pkty/pkty.db)")
+	sqliteDB      = flag.String("sqlite-db", "", "SQLite database path (enables SQLite logging, overrides default path)")
+	uiRefresh     = flag.Int("ui-refresh", 0, "UI redraw interval in ms (default: 100); increase on high-traffic servers")
+	hideEncrypted = flag.Bool("hide-encrypted", false, "hide TLS/SSH/QUIC packets from the inspector list (they still feed all stats)")
 )
 
 func main() {
@@ -59,6 +61,12 @@ func main() {
 	}
 	if *bpfFilter != "" {
 		cfg.Capture.BPFFilter = *bpfFilter
+	}
+	if *uiRefresh > 0 {
+		cfg.Performance.UIRefreshMs = *uiRefresh
+	}
+	if *hideEncrypted {
+		cfg.Performance.HideEncrypted = true
 	}
 
 	bus := events.NewEventBus(4096)
