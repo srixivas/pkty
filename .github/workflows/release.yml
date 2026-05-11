@@ -29,17 +29,18 @@ jobs:
 
       - name: Build
         run: |
+          go mod tidy
           mkdir -p dist
           VERSION=${GITHUB_REF_NAME}
-          LDFLAGS="-s -w -trimpath -X main.version=${VERSION}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
 
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-            go build -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
+            go build -trimpath -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
           tar -czf dist/pkty_linux_amd64.tar.gz pkty
           rm pkty
 
           CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc \
-            go build -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
+            go build -trimpath -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
           tar -czf dist/pkty_linux_arm64.tar.gz pkty
           rm pkty
 
@@ -63,17 +64,18 @@ jobs:
 
       - name: Build
         run: |
+          go mod tidy
           mkdir -p dist
           VERSION=${GITHUB_REF_NAME}
-          LDFLAGS="-s -w -trimpath -X main.version=${VERSION}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
 
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
+            go build -trimpath -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
           tar -czf dist/pkty_darwin_arm64.tar.gz pkty
           rm pkty
 
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
-            go build -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
+            go build -trimpath -ldflags "${LDFLAGS}" -o pkty ./cmd/pkty
           tar -czf dist/pkty_darwin_amd64.tar.gz pkty
           rm pkty
 
