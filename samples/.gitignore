@@ -1,0 +1,8 @@
+# Downloaded sample files — run download.sh to get these locally
+*.pcap
+*.pcapng
+*.cap
+*.zip
+*.7z
+unit42/
+ultimate/

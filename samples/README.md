@@ -1,6 +1,6 @@
 # pkty Sample Captures
 
-Sample pcap files for testing and demo recording. Load any of these with:
+Sample pcap files for testing, demos, and screenshots. Load any with:
 
 ```bash
 pkty -r samples/<file>.pcap
@@ -8,33 +8,37 @@ pkty -r samples/<file>.pcap
 
 ---
 
-## Included samples
+## ⬇️ Download samples
 
-<!-- Add downloaded pcap files here as you collect them -->
+Run the download script to fetch verified captures locally (files are gitignored):
 
-| File | Source | Protocols | Notes |
-|------|--------|-----------|-------|
-| _(none yet — see sources below)_ | | | |
+```bash
+bash samples/download.sh
+```
+
+### What you get
+
+| Folder | Source | Size | Protocols | Best for |
+|--------|--------|------|-----------|----------|
+| `unit42/` | Palo Alto Unit42 | 9 MB zip | DNS, HTTP, TLS, C2 beaconing | DNS widget, TLS Inspector, Remote Hosts, NetGraph |
+| `ultimate/` | weberblog.net | 5 MB 7z | 90+ protocols | Protocol Dist, hex dump deep-dives |
+
+**unit42** — 5 real malware infection pcaps (Loki Bot, IcedID, Ave Maria RAT, infostealer, spambot). Zip password: `infected`. Great for seeing pkty catch actual suspicious patterns.
+
+**ultimate** — Synthetic but extremely broad — nearly every protocol in one file. Good for stress-testing the Protocol Distribution widget.
 
 ---
 
-## Recommended sources
-
-### 🔬 Malware / threat traffic (real-world)
+## 🔬 More sources
 
 | Source | URL | Notes |
 |--------|-----|-------|
-| **Palo Alto Unit42 Wireshark tutorials** | https://github.com/PaloAltoNetworks/Unit42-Wireshark-tutorials | Real malware pcaps (Loki Bot, IcedID, Ave Maria RAT). Zip password: `infected` |
-| **Malware Traffic Analysis** | https://malware-traffic-analysis.net | Brad Duncan's collection of real C2/malware traffic. Password shown on site |
-| **NETRESEC MACCDC** | https://www.netresec.com/?page=PcapFiles | Collegiate cyber defense competition captures — rich mix of attack + defense |
-
-### 🧪 Protocol / CTF samples
-
-| Source | URL | Notes |
-|--------|-----|-------|
-| **CyberDefenders** | https://cyberdefenders.org | Free blue-team challenges, many include pcap downloads |
-| **Wireshark sample captures** | https://wiki.wireshark.org/SampleCaptures | Protocol-specific samples, good for widget testing |
-| **PacketLife** | https://packetlife.net/captures | Clean protocol captures across many layers |
+| **Palo Alto Unit42** | https://github.com/PaloAltoNetworks/Unit42-Wireshark-tutorials | Real malware traffic, password: `infected` |
+| **Malware Traffic Analysis** | https://malware-traffic-analysis.net | Brad Duncan's real C2/malware captures. Password on site |
+| **NETRESEC / MACCDC** | https://www.netresec.com/?page=PcapFiles | Collegiate cyber defense competition captures |
+| **CyberDefenders** | https://cyberdefenders.org | Blue-team CTF challenges with pcap downloads |
+| **Wireshark samples** | https://wiki.wireshark.org/SampleCaptures | Protocol-specific reference captures |
+| **PacketLife** | https://packetlife.net/captures | Clean multi-protocol captures |
 
 ---
 
@@ -48,6 +52,6 @@ pkty -r samples/<file>.pcap
 
 ---
 
-<!-- TODO: download and commit 1-2 good samples for offline demo use -->
-<!-- TODO: evaluate MACCDC 2012 captures for a compelling cybersecurity demo -->
-<!-- TODO: add a script to auto-download and verify samples -->
+<!-- TODO: evaluate MACCDC captures for a cybersecurity-focused demo tape -->
+<!-- TODO: add more malware families from malware-traffic-analysis.net -->
+<!-- TODO: script to auto-select best pcap based on packet count / protocol mix -->
