@@ -25,12 +25,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo dpkg --add-architecture arm64
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe" \
-            | sudo tee /etc/apt/sources.list.d/arm64-ports.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe" \
-            | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe" \
-            | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+          # Restrict existing DEB822 sources to amd64 so they don't try to
+          # fetch arm64 indexes from Azure/security mirrors that don't have them
+          sudo python3 -c "
+          import glob
+          for p in glob.glob('/etc/apt/sources.list.d/*.sources'):
+              t = open(p).read()
+              if 'Architectures:' not in t:
+                  t = t.replace('Components:', 'Architectures: amd64\nComponents:')
+                  open(p, 'w').write(t)
+          " 2>/dev/null || true
+          # Add arm64 sources from ports.ubuntu.com
+          printf 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe\n' \
+            | sudo tee /etc/apt/sources.list.d/arm64-ports.list > /dev/null
           sudo apt-get update -q
           sudo apt-get install -y libpcap-dev libpcap-dev:arm64 gcc-aarch64-linux-gnu
 
