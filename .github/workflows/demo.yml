@@ -1,0 +1,49 @@
+name: 🎬 Record demo GIF
+
+on:
+  workflow_dispatch:
+
+jobs:
+  record:
+    name: Record & commit demo.gif
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libpcap-dev ffmpeg
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://repo.charm.sh/apt/gpg.key \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
+            | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y vhs
+
+      - name: Build pkty
+        run: go build -o pkty ./cmd/pkty
+
+      - name: Generate demo.pcap
+        run: go run demo/gen_pcap.go
+
+      - name: Record demo.gif
+        run: vhs demo/demo.tape
+
+      - name: Commit demo.gif
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add demo/demo.gif
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "🎬 demo: regenerate demo.gif"
+          git push
