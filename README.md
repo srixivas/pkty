@@ -1,5 +1,8 @@
 <div align="center">
-  <img src="demo/logo.png" width="480" alt="pkty owl logo" />
+  <table><tr>
+    <td width="60"></td>
+    <td><img src="demo/logo.png" width="480" alt="pkty owl logo" /></td>
+  </tr></table>
   <h1>pkty 🦉</h1>
 </div>
 
