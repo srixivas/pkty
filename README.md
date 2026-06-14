@@ -1,8 +1,7 @@
-<p align="center">
-  <img src="demo/logo.png" width="300" alt="pkty owl logo" />
-</p>
-
-<h1 align="center">pkty 🦉</h1>
+<div align="center">
+  <img src="demo/logo.png" width="480" alt="pkty owl logo" />
+  <h1>pkty 🦉</h1>
+</div>
 
 <p align="center"><em>terminal-native packet intelligence — watch everything, miss nothing, never leave your terminal</em></p>
 
