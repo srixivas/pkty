@@ -49,4 +49,5 @@ jobs:
           git add demo/demo.gif
           git diff --staged --quiet && echo "No changes" && exit 0
           git commit -m "🎬 demo: regenerate demo.gif"
+          git pull --rebase
           git push
