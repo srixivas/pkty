@@ -30,6 +30,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y vhs
 
+      - name: Tidy modules
+        run: go mod tidy
+
       - name: Build pkty
         run: go build -o pkty ./cmd/pkty
 
