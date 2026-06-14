@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="demo/logo.png" width="480" alt="pkty owl logo" />
+  <img src="demo/logo.png" width="700" alt="pkty owl logo" />
   <h1>pkty 🦉</h1>
 </div>
 
