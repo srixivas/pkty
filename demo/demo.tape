@@ -11,6 +11,8 @@ Output demo/demo.gif
 Set Shell "bash"
 Set FontSize 13
 Env "PS1" "$ "
+Env "TERM" "xterm-256color"
+Env "COLORTERM" "truecolor"
 Set FontFamily "JetBrains Mono"
 Set Width 1800
 Set Height 900
