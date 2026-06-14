@@ -1,9 +1,5 @@
 package widgets
 
-// TODO: Annotate edges with HTTP content-type from HTTPEvent when the
-// connection is identified (e.g. "video/mp4" → streaming, "application/json"
-// → API call). HTTPEvent already carries ContentType and Method/URL; wiring it
-// here would allow edge labels like [HTTPS · video/mp4].
 
 import (
 	"fmt"
@@ -108,10 +104,38 @@ type ngEdgeKey struct {
 }
 
 type ngEdge struct {
-	Proto   string
-	Port    uint16
-	TXBytes uint64 // outgoing: local → remote
-	RXBytes uint64 // incoming: remote → local
+	Proto       string
+	Port        uint16
+	TXBytes     uint64 // outgoing: local → remote
+	RXBytes     uint64 // incoming: remote → local
+	ContentType string // HTTP response content-type, if observed
+}
+
+// shortCT extracts a ≤5-char abbreviation from a MIME content-type string.
+func shortCT(ct string) string {
+	if ct == "" {
+		return ""
+	}
+	// Strip parameters: "text/html; charset=utf-8" → "text/html"
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		ct = strings.TrimSpace(ct[:i])
+	}
+	// Take the subtype after "/"
+	if i := strings.IndexByte(ct, '/'); i >= 0 {
+		ct = ct[i+1:]
+	}
+	return truncStr(ct, 5)
+}
+
+// edgeLabel builds the bracket label for an edge row.
+// Without ContentType: 7-char padded protocol name.
+// With ContentType:    "PROTO·ct" padded to 13 chars.
+func edgeLabel(e *ngEdge) string {
+	base := protoLabel(e.Proto, e.Port)
+	if e.ContentType == "" {
+		return fmt.Sprintf("%-7s", truncStr(base, 7))
+	}
+	return fmt.Sprintf("%-13s", truncStr(base+"·"+shortCT(e.ContentType), 13))
 }
 
 type ngHost struct {
@@ -227,6 +251,35 @@ func (g *NetGraphWidget) RebuildVisible() {
 func (g *NetGraphWidget) AddIPName(ip, name string) {
 	if ip != "" && name != "" {
 		g.ipToName[ip] = name
+	}
+}
+
+// AddHTTPEvent annotates the matching edge with the observed content-type.
+func (g *NetGraphWidget) AddHTTPEvent(evt events.HTTPEvent) {
+	if evt.ContentType == "" {
+		return
+	}
+	// HTTP responses: the remote host is DstIP for requests (src=local),
+	// but the response arrives from DstIP's perspective. We look up by
+	// the remote IP — whichever of SrcIP/DstIP is non-private.
+	remoteIP := evt.DstIP
+	if isPrivateIP(evt.DstIP) {
+		remoteIP = evt.SrcIP
+	}
+	if remoteIP == nil {
+		return
+	}
+	host, ok := g.hosts[remoteIP.String()]
+	if !ok {
+		return
+	}
+	// Match edge by HTTP ports (80/8080 plain, 443/8443 TLS)
+	for _, port := range []uint16{80, 8080, 443, 8443} {
+		ek := ngEdgeKey{Proto: "TCP", Port: port}
+		if edge, ok := host.Edges[ek]; ok {
+			edge.ContentType = evt.ContentType
+			return
+		}
 	}
 }
 
@@ -523,7 +576,7 @@ func (g *NetGraphWidget) View() string {
 						edgeConn = "  └──"
 					}
 
-					label := fmt.Sprintf("%-7s", truncStr(protoLabel(e.Proto, e.Port), 7))
+					label := edgeLabel(e)
 
 					txFill := ngBarFill(e.TXBytes, g.maxEdgeBytes, barW)
 					rxFill := ngBarFill(e.RXBytes, g.maxEdgeBytes, barW)

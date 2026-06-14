@@ -122,6 +122,7 @@ type Model struct {
 	bottomFocus int
 	centreMode  int // 0 = PacketInspector, 1 = NetGraph
 	splashing   bool
+	showHelp    bool
 	statusStyle     lipgloss.Style
 	filterStyle     lipgloss.Style
 	displayBarStyle  lipgloss.Style
@@ -255,6 +256,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 
+		// Help overlay intercepts all keys except ? and esc to close
+		if m.showHelp {
+			if msg.String() == "?" || msg.String() == "esc" {
+				m.showHelp = false
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -268,7 +277,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "?":
-			m.searchBar.Activate()
+			m.showHelp = true
 			return m, nil
 
 		case "D":
@@ -459,6 +468,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.listenTLS())
 
 	case HTTPMsg:
+		evt := events.HTTPEvent(msg)
+		m.netGraph.AddHTTPEvent(evt)
 		cmds = append(cmds, m.listenHTTP())
 
 	case CaptureErrMsg:
@@ -606,6 +617,9 @@ func (m Model) View() string {
 	if m.searchBar.Active() {
 		m.searchBar.SetWidth(m.width)
 		displayBar = m.displayBarStyle.Width(m.width).Render(m.searchBar.View())
+	}
+	if m.showHelp {
+		return m.helpView()
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, displayBar, topRow, bottomRow, statusBar)
 }
